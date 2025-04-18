@@ -1,0 +1,33 @@
+{
+  "name": "daddr",
+  "version": "0.1.0",
+  "description": "Deterministic multi-chain address SDK for Node.js",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@noble/ed25519": "^2.2.3",
+    "@noble/secp256k1": "^2.2.3",
+    "@polkadot/api": "^15.9.2",
+    "@scure/bip32": "^1.6.2",
+    "@solana/web3.js": "^1.98.0",
+    "axios": "^1.8.4",
+    "bitcoinjs-lib": "7.0.0-rc.0",
+    "bs58": "^6.0.0",
+    "ecpair": "^3.0.0",
+    "ethers": "5.8.0",
+    "js-sha3": "^0.9.3",
+    "tiny-secp256k1": "^2.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.1",
+    "typescript": "^5.3.3",
+    "vitest": "^3.1.1"
+  }
+}
