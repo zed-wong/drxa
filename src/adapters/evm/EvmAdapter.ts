@@ -35,6 +35,7 @@ export class EvmAdapter implements IChainAdapter {
   }
 
   derivePrivateKey(params: DeriveParams): { priv: Uint8Array; address: string } {
+    params.chain = 'ethereum'; // EVM chains are all derived from Ethereum
     const entropy = deriveEntropy(this.masterSeed, params);
     const priv = entropy.slice(0, 32); // use first 32 bytes as seed
 

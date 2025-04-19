@@ -8,7 +8,7 @@ import {
   SystemProgram,
   Transaction,
   sendAndConfirmTransaction,
-} from "@solana/web3.js";
+} from "gill";
 import { ChainManager } from "../../core/ChainManager.js";
 import { getRpcEndpoints } from "../../constants/config.js";
 
@@ -22,7 +22,7 @@ export class SolanaAdapter implements IChainAdapter {
 
   constructor(masterSeed: Uint8Array) {
     const { http } = getRpcEndpoints("solana");
-    this.connection = new Connection(http, "confirmed");
+    this.connection = new Connection(http, { commitment: "confirmed" }); // Updated connection initialization for gill
     this.masterSeed = masterSeed;
     ChainManager.register(this);
   }

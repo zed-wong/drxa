@@ -57,7 +57,7 @@ export const DEFAULT_RPC_URLS: Record<string, RpcEndpoints> = {
     explorerApi: "https://api.arbiscan.io/api",
   },
   tron: {
-    http: "https://api.trongrid.io",
+    http: "https://tron-rpc.publicnode.com",
     explorer: "https://tronscan.org",
     explorerApi: "https://api.trongrid.io",
   },
