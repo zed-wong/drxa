@@ -4,10 +4,10 @@ import { createHmac } from "crypto";
 import { SupportedChain } from "../constants/config.js";
 
 export interface DeriveParams {
-  scope: string;
-  userId: string;
-  chain: SupportedChain;
-  index: string;
+  scope: string;                  // Usage (wallet, session, order)
+  userId: string;                 // Unique identifier (uuid)
+  chain: SupportedChain;          // Chain identifier (bitcoin, ethereum)
+  index: string;                  // Multiple addresses (0, 1, temp-001)
 }
 
 /**

@@ -1,7 +1,7 @@
 // examples/2_evm/evmAdapter_example.ts
+import Big from "big.js";
 import { exit } from "node:process";
 import { EvmAdapter, EvmConfig } from "../../src/adapters/evm/EvmAdapter.js";
-import Big from "big.js";
 import { generateEd25519Keypair, privToSeed } from "../../src/utils/keypair.js";
 
 (async () => {
@@ -10,13 +10,16 @@ import { generateEd25519Keypair, privToSeed } from "../../src/utils/keypair.js";
   // const privateKey = '3a84ae3e37f2f228b4bbb14ed032028a9e103248f834f52e8fce6de54e07c666'
   console.log("Private Key:", privateKey);
   const seed = privToSeed(privateKey)
+  
   const config: EvmConfig = {
-    chainName: "ethereum", // or "arbitrum", "optimism", etc.
+    // or "arbitrum", "optimism", etc.
+    chainName: "ethereum",
 
     // These value can be set to overide the default RPC endpoints
     // chainId: 1,
     // rpcUrl: "https://eth.llamarpc.com",
     // wsUrl: "wss://mainnet.gateway.tenderly.co",
+
     explorerApiKey: '',
   };
 

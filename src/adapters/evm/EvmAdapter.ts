@@ -2,10 +2,10 @@ import { IChainAdapter } from "../../interfaces/IChainAdapter.js";
 import { deriveEntropy, DeriveParams } from "../../utils/derivation.js";
 import { ChainManager } from "../../core/ChainManager.js";
 import { getRpcEndpoints, SUPPORTED_CHAINS } from "../../constants/config.js";
+import Big from "big.js";
 import { keccak256 } from "js-sha3";
 import { BigNumber, providers, Wallet, Contract } from "ethers";
 import { getPublicKey as getSecp256k1Pub } from "@noble/secp256k1";
-import Big from "big.js";
 
 // Minimal ERC20 ABI for balance and transfer
 const ERC20_ABI = [
