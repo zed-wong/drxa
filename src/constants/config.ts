@@ -4,64 +4,79 @@ export interface RpcEndpoints {
   ws?: string;
   explorer?: string;
   explorerApi?: string;
+  chainId?: string | number;
 }
 
-// Default RPC, WS, Explorer, and Explorer API endpoints for all chains
-export const DEFAULT_RPC_URLS: Record<string, RpcEndpoints> = {
+// Default RPC, WS, Explorer, and Explorer API endpoints for EVM chains
+export const DEFAULT_EVM_RPC_URLS: Record<string, RpcEndpoints> = {
   ethereum: {
     http: "https://eth.llamarpc.com",
     ws: "wss://mainnet.gateway.tenderly.co",
     explorer: "https://etherscan.io",
     explorerApi: "https://api.etherscan.io/api",
+    chainId: 1,
   },
   bsc: {
     http: "https://bsc-dataseed.binance.org/",
     ws: "wss://bsc-ws-node.nariox.org:443",
     explorer: "https://bscscan.com",
     explorerApi: "https://api.bscscan.com/api",
+    chainId: 56,
   },
   cronos: {
     http: "https://evm-cronos.crypto.org",
     ws: "wss://evm-cronos.crypto.org/ws",
     explorer: "https://cronoscan.com",
     explorerApi: "https://api.cronoscan.com/api",
+    chainId: 25,
   },
   polygon: {
     http: "https://polygon-bor-rpc.publicnode.com",
     ws: "wss://polygon-bor-rpc.publicnode.com",
     explorer: "https://polygonscan.com",
     explorerApi: "https://api.polygonscan.com/api",
+    chainId: 137,
   },
   avalanche: {
     http: "https://avalanche-c-chain-rpc.publicnode.com",
     ws: "wss://avalanche-c-chain-rpc.publicnode.com",
     explorer: "https://snowtrace.io",
     explorerApi: "https://api.snowtrace.io/api",
+    chainId: 43114,
   },
   fantom: {
     http: "https://rpc.ftm.tools",
     ws: "wss://wsapi.fantom.network/",
     explorer: "https://ftmscan.com",
     explorerApi: "https://api.ftmscan.com/api",
+    chainId: 250,
   },
   optimism: {
     http: "https://mainnet.optimism.io",
     ws: "wss://mainnet.optimism.io/ws",
     explorer: "https://optimistic.etherscan.io",
     explorerApi: "https://api-optimistic.etherscan.io/api",
+    chainId: 10,
   },
   arbitrum: {
     http: "https://arb1.arbitrum.io/rpc",
     ws: "wss://arb1.arbitrum.io/ws",
     explorer: "https://arbiscan.io",
     explorerApi: "https://api.arbiscan.io/api",
+    chainId: 42161,
   },
   sonic: {
     http: "https://sonic-rpc.publicnode.com",
     ws: "wss://sonic-rpc.publicnode.com",
     explorer: "https://sonicscan.org",
     explorerApi: "https://api.sonicscan.org/api",
+    chainId: 146,
   },
+}
+
+// Default RPC, WS, Explorer, and Explorer API endpoints for all chains
+export const DEFAULT_RPC_URLS: Record<string, RpcEndpoints> = {
+  ...DEFAULT_EVM_RPC_URLS,
   tron: {
     http: "https://tron-rpc.publicnode.com",
     explorer: "https://tronscan.org",
@@ -84,6 +99,7 @@ export const DEFAULT_RPC_URLS: Record<string, RpcEndpoints> = {
     explorerApi: "https://blockstream.info/api",
   },
 };
+
 
 export const SUPPORTED_CHAINS = Object.keys(DEFAULT_RPC_URLS);
 export type SupportedChain = typeof SUPPORTED_CHAINS[number];

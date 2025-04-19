@@ -1,4 +1,4 @@
-import { getRpcEndpoints, SUPPORTED_CHAINS } from "../constants/config.js";
+import { getRpcEndpoints, SUPPORTED_CHAINS } from "../../constants/config.js";
 import { describe, it, expect } from "vitest";
 
 describe("RPC Endpoints Configuration", () => {

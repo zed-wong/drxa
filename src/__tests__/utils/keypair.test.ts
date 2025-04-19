@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateEd25519Keypair } from "../utils/keypair.js";
+import { generateEd25519Keypair } from "../../utils/keypair.js";
 
 // Test suite for generateEd25519Keypair
 

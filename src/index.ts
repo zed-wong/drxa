@@ -47,4 +47,17 @@ export class WalletSDK {
   createWallet(): HDWallet {
     return new HDWallet(this.seed);
   }
+
+  /**
+   *  Derive address of all chains
+   */
+  showAllDerivedAddresses() {
+    const addresses = this.wallet.deriveAddress({
+      scope: "wallet",
+      userId: "1",
+      chain: "ethereum",
+      index: "0",
+    })
+    console.log("All derived addresses:", addresses);
+  }
 }
