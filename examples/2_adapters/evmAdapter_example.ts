@@ -1,17 +1,18 @@
 // examples/2_evm/evmAdapter_example.ts
 import { exit } from "node:process";
-import { EvmAdapter } from "../../src/adapters/evm/EvmAdapter.js";
+import { EvmAdapter, EvmConfig } from "../../src/adapters/evm/EvmAdapter.js";
 import Big from "big.js";
 
 (async () => {
   const seed = new Uint8Array(32).fill(1); // Example master seed
-  const config = {
-    chainName: "arbitrum", // or "arbitrum", "optimism", etc.
+  const config: EvmConfig = {
+    chainName: "ethereum", // or "arbitrum", "optimism", etc.
 
     // These value can be set to overide the default RPC endpoints
+    // chainId: 1,
     // rpcUrl: "https://eth.llamarpc.com",
     // wsUrl: "wss://mainnet.gateway.tenderly.co",
-    // chainId: 1,
+    explorerApiKey: '',
   };
 
   const evmAdapter = new EvmAdapter(config, seed);
@@ -27,44 +28,64 @@ import Big from "big.js";
   console.log("Derived Ethereum Address:", derivedAddress);
 
 
-
-
   // 2. Fetch native token balance
   const balance = await evmAdapter.balance(deriveParams);
   console.log("Native Token Balance:", balance.toString());
 
 
-
-
-  // 3. Fetch ERC20 token balance
-  const tokenContract = "0x6b175474e89094c44da98b954eedeac495271d0f"; // DAI (ERC20)
-  const tokenBalance = await evmAdapter.tokenBalance(deriveParams, tokenContract);
-  console.log("ERC20 Token Balance:", tokenBalance.toString());
-
-
-
-
-  // 4. Send native tokens
+  // 3. Send native tokens
   if (balance.gt(0)) {
+    const ETHFeeEstimates = await evmAdapter.estimateFee(
+      deriveParams, 
+      "0x6b175474e89094c44da98b954eedeac495271d0f",
+      Big(1),
+    );
+    console.log("Native Fee Estimates:", ETHFeeEstimates);
+
     const tx = await evmAdapter.send(
       deriveParams,
       "0x6b175474e89094c44da98b954eedeac495271d0f",
-      Big(0)
+      Big(1)
     );
     console.log("Transaction Hash (Native Token):", tx.txHash);  
   }
 
+  
+
+  // 4. Fetch ERC20 token balance
+  if (config.chainName === "ethereum") {
+    const tokenContract = "0x6b175474e89094c44da98b954eedeac495271d0f"; // DAI (ERC20)
+    const tokenBalance = await evmAdapter.tokenBalance(deriveParams, tokenContract);
+    console.log("ERC20 Token Balance:", tokenBalance.toString());
 
 
   // 5. Send ERC20 tokens
-  if (tokenBalance.gt(0)) {
-    const tokenTx = await evmAdapter.sendToken(
-      deriveParams,
-      tokenContract,
-      "0x6b175474e89094c44da98b954eedeac495271d0f",
-      Big(0)
-    );
-    console.log("Transaction Hash (ERC20 Token):", tokenTx.txHash);
+    if (tokenBalance.gt(0)) {
+      // 7. Fetch fee estimates
+      const ERC20FeeEstimates = await evmAdapter.estimateFee(
+        deriveParams, 
+        "0x6b175474e89094c44da98b954eedeac495271d0f",
+        Big(1),
+        tokenContract
+      );
+      console.log("ERC20 Fee Estimates:", ERC20FeeEstimates);
+
+
+      const tokenTx = await evmAdapter.sendToken(
+        deriveParams,
+        "0x6b175474e89094c44da98b954eedeac495271d0f",
+        Big(1),
+        tokenContract,
+      );
+      console.log("Transaction Hash (ERC20 Token):", tokenTx.txHash);
+    }
+  }
+
+
+  // 6. Fetch transaction history
+  if (config.explorerApiKey?.length) {
+    const txHistory = await evmAdapter.getHistory(deriveParams);
+    console.log("Transaction History:", txHistory);  
   }
 
   exit(0);

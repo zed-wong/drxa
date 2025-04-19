@@ -19,11 +19,14 @@ export interface EvmConfig {
   chainId?: string | number;
   rpcUrl?: string;
   wsUrl?: string;
+  /** Required for getHistory */
+  explorerApiKey?: string;
 }
 
 export class EvmAdapter implements IChainAdapter {
   public readonly chainName: string;
   public readonly chainId: number;
+  private readonly config: EvmConfig;
   protected provider: providers.JsonRpcProvider;
   protected wsProvider: providers.WebSocketProvider;
   private masterSeed: Uint8Array;
@@ -33,13 +36,13 @@ export class EvmAdapter implements IChainAdapter {
     if (!rpcEndpoints) {
       throw new Error(`RPC endpoints not found for chain ${config.chainName}`);
     }
+    this.config = config;
     this.chainName = config.chainName;
 
     // Determine chain ID: prefer config.chainId, otherwise use default RPC config
-    const chainIdNum = config.chainId !== undefined
+    this.chainId = config.chainId !== undefined
       ? Number(config.chainId)
       : Number(rpcEndpoints.chainId);
-    this.chainId = chainIdNum;
     this.masterSeed = masterSeed;
 
     console.log("provider url:", config.rpcUrl || rpcEndpoints.http);
@@ -59,9 +62,7 @@ export class EvmAdapter implements IChainAdapter {
     ChainManager.register(this);
   }
 
-  derivePrivateKey(
-    params: DeriveParams
-  ): { priv: Uint8Array; address: string } {
+  private derivePrivateKey(params: DeriveParams): { priv: Uint8Array; address: string } {
     params.chain = "ethereum";
     const entropy = deriveEntropy(this.masterSeed, params);
     const priv = entropy.slice(0, 32);
@@ -72,8 +73,7 @@ export class EvmAdapter implements IChainAdapter {
   }
 
   async deriveAddress(params: DeriveParams): Promise<string> {
-    const { address } = this.derivePrivateKey(params);
-    return address;
+    return this.derivePrivateKey(params).address;
   }
 
   async balance(params: DeriveParams): Promise<Big> {
@@ -82,10 +82,7 @@ export class EvmAdapter implements IChainAdapter {
     return Big(bal.toString());
   }
 
-  async tokenBalance(
-    params: DeriveParams,
-    tokenContract: string
-  ): Promise<Big> {
+  async tokenBalance(params: DeriveParams, tokenContract: string): Promise<Big> {
     const { address } = this.derivePrivateKey(params);
     const contract = new Contract(tokenContract, ERC20_ABI, this.provider);
     const bal: BigNumber = await contract.balanceOf(address);
@@ -109,9 +106,9 @@ export class EvmAdapter implements IChainAdapter {
 
   async sendToken(
     params: DeriveParams,
-    tokenContract: string,
     to: string,
-    amount: Big
+    amount: Big,
+    tokenContract: string,
   ): Promise<{ txHash: string }> {
     const { priv } = this.derivePrivateKey(params);
     const wallet = new Wallet(priv, this.provider);
@@ -139,11 +136,68 @@ export class EvmAdapter implements IChainAdapter {
     this.wsProvider.on("block", handler);
     return { unsubscribe: () => this.wsProvider.off("block", handler) };
   }
+
+  /**
+   * Estimate transaction fee in native token units
+   */
+  async estimateFee(
+    params: DeriveParams,
+    to: string,
+    amount: Big,
+    tokenContract?: string
+  ): Promise<{ fee: Big }> {
+    const { address } = this.derivePrivateKey(params);
+    const gasPrice = await this.provider.getGasPrice();
+    let gasLimit: BigNumber;
+
+    if (tokenContract) {
+      // ERC20 fee estimation
+      const contract = new Contract(tokenContract, ERC20_ABI, this.provider);
+      const decimals: number = await contract.decimals();
+      const scaled = Big(amount.toString()).times(Big(10).pow(decimals));
+      const value = BigNumber.from(scaled.toFixed(0));
+      gasLimit = await contract.estimateGas.transfer(to, value, { from: address });
+    } else {
+      // Native fee estimation
+      const value = BigNumber.from(amount.toString());
+      gasLimit = await this.provider.estimateGas({ from: address, to, value });
+    }
+
+    const feeWei = gasLimit.mul(gasPrice);
+    return { fee: Big(feeWei.toString()) };
+  }
+
+  /**
+   * Fetch transaction history for the derived address (requires explorerApiKey)
+   */
+  async getHistory(
+    params: DeriveParams
+  ): Promise<Array<{ txHash: string; amount: Big }>> {
+    if (!this.config.explorerApiKey) {
+      throw new Error("explorerApiKey must be provided in config to fetch history");
+    }
+    const { address } = this.derivePrivateKey(params);
+    const etherscan = new providers.EtherscanProvider(
+      this.chainName,
+      this.config.explorerApiKey
+    );
+    const txs = await etherscan.getHistory(address);
+    return txs.map((tx) => ({
+      txHash: tx.hash,
+      amount: Big(tx.value.toString()),
+    }));
+  }
 }
 
+/**
+ * Register all configured EVM-compatible chains at runtime.
+ */
 export function registerEvmAdapters(masterSeed: Uint8Array) {
   SUPPORTED_CHAINS.forEach((chain) => {
     const { http, ws, chainId } = getRpcEndpoints(chain);
-    new EvmAdapter({ chainName: chain, rpcUrl: http, wsUrl: ws, chainId }, masterSeed);
+    new EvmAdapter(
+      { chainName: chain, rpcUrl: http, wsUrl: ws, chainId },
+      masterSeed
+    );
   });
 }
