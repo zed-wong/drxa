@@ -3,14 +3,15 @@ import { ChainManager } from "../../core/ChainManager.js";
 import { getRpcEndpoints } from "../../constants/config.js";
 import { IChainAdapter } from "../../interfaces/IChainAdapter.js";
 import { deriveEntropy, DeriveParams } from "../../utils/derivation.js";
+import Big from "big.js";
 import axios from "axios";
 import { Buffer } from "buffer";
 import * as tinysecp from "tiny-secp256k1";
 import { initEccLib } from "bitcoinjs-lib";
 import type { Signer } from "bitcoinjs-lib";
-import { payments, Psbt, networks } from "bitcoinjs-lib";
 import ECPairFactory, { ECPairInterface } from "ecpair";
-import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371'
+import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
+import { payments, Psbt, networks } from "bitcoinjs-lib";
 
 // Initialize ECC library for bitcoinjs-lib
 initEccLib(tinysecp);
@@ -87,20 +88,22 @@ export class BitcoinAdapter implements IChainAdapter {
     return { priv, address };
   }
 
+  async balance(params: DeriveParams, options?: { url: string}): Promise<Big> {
+    const { address } = this.derivePrivateKey(params);
+    const { data: balanceData } = await axios.get(
+      options?.url || `${this.explorerApi}/address/${address}`
+    );
+    return new Big(balanceData);
+  }
+
   /**
    * Build, sign, and broadcast a Bitcoin transaction via Blockstream API.
    */
   async send(
-    path: string,
+    params: DeriveParams,
     to: string,
-    amount: number | bigint
+    amount: Big
   ): Promise<{ txHash: string }> {
-    const params: DeriveParams = {
-      scope:  "wallet",
-      userId: "default",
-      chain:  "bitcoin",
-      index:  path,
-    };
     const { priv, address: from } = this.derivePrivateKey(params);
 
     // Fetch UTXOs
@@ -110,18 +113,18 @@ export class BitcoinAdapter implements IChainAdapter {
 
     // Build PSBT
     const psbt = new Psbt();
-    let inputSum = 0;
+    let inputSum = new Big(0);
     for (const utxo of utxos) {
       psbt.addInput({
         hash: utxo.txid,
         index: utxo.vout,
         nonWitnessUtxo: Buffer.from(utxo.raw_tx, "hex"),
       });
-      inputSum += utxo.value;
-      if (inputSum >= Number(amount) + 1000) break;
+      inputSum = inputSum.plus(utxo.value);
+      if (inputSum.gte(amount.plus(1000))) break;
     }
-    psbt.addOutput({ address: to, value: BigInt(amount) });
-    psbt.addOutput({ address: from, value: BigInt(inputSum) - BigInt(amount) - BigInt(1000) });
+    psbt.addOutput({ address: to, value: BigInt(amount.toString()) });
+    psbt.addOutput({ address: from, value: BigInt(inputSum.minus(amount).minus(1000).toString()) });
 
     // Sign & finalize
     const ECPair = ECPairFactory(tinysecp);
@@ -143,7 +146,7 @@ export class BitcoinAdapter implements IChainAdapter {
    */
   async subscribe(
     address: string,
-    onIncoming: (txHash: string, amount: number | bigint) => void
+    onIncoming: (txHash: string, amount: Big) => void
   ): Promise<{ unsubscribe: () => void }> {
     const seen = new Set<string>();
     const interval = setInterval(async () => {
@@ -154,7 +157,7 @@ export class BitcoinAdapter implements IChainAdapter {
         for (const tx of txs) {
           if (!seen.has(tx.txid)) {
             seen.add(tx.txid);
-            onIncoming(tx.txid, 0n);
+            onIncoming(tx.txid, new Big(0));
           }
         }
       } catch (e) {

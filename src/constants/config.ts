@@ -56,6 +56,12 @@ export const DEFAULT_RPC_URLS: Record<string, RpcEndpoints> = {
     explorer: "https://arbiscan.io",
     explorerApi: "https://api.arbiscan.io/api",
   },
+  sonic: {
+    http: "https://sonic-rpc.publicnode.com",
+    ws: "wss://sonic-rpc.publicnode.com",
+    explorer: "https://sonicscan.org",
+    explorerApi: "https://api.sonicscan.org/api",
+  },
   tron: {
     http: "https://tron-rpc.publicnode.com",
     explorer: "https://tronscan.org",

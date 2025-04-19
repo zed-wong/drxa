@@ -32,7 +32,7 @@ export function deriveForChain(masterSeed: Uint8Array, params: DeriveParams) {
 
   // Delegate derivation to the appropriate adapter
   switch (params.chain) {
-    case "eth": case "bsc": case "base": case "fantom": case "polygon":
+    case "bsc": case "base": case "fantom": case "polygon":
     case "ethereum": case "optimism": case "arbitrum": case "avalanche":
       return { priv, chain: params.chain };
     case "sol": case "solana":
