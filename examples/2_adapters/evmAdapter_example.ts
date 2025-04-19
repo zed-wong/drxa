@@ -2,9 +2,14 @@
 import { exit } from "node:process";
 import { EvmAdapter, EvmConfig } from "../../src/adapters/evm/EvmAdapter.js";
 import Big from "big.js";
+import { generateEd25519Keypair, privToSeed } from "../../src/utils/keypair.js";
 
 (async () => {
-  const seed = new Uint8Array(32).fill(1); // Example master seed
+  const { privateKey } = await generateEd25519Keypair();
+  // Or use a hardcoded private key for testing, you will get a consistent derived address
+  // const privateKey = '3a84ae3e37f2f228b4bbb14ed032028a9e103248f834f52e8fce6de54e07c666'
+  console.log("Private Key:", privateKey);
+  const seed = privToSeed(privateKey)
   const config: EvmConfig = {
     chainName: "ethereum", // or "arbitrum", "optimism", etc.
 
