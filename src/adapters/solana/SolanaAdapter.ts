@@ -42,7 +42,7 @@ export class SolanaAdapter implements IChainAdapter {
     const { priv } = deriveForChain(this.masterSeed, params);
     const signer = await createKeyPairSignerFromBytes(priv);
     const { value } = await this.rpc.getBalance(signer.address as Address).send();
-    return new Big(value);
+    return new Big(value.toString());
   }
 
   /** Send lamports from a derived address */
@@ -56,7 +56,7 @@ export class SolanaAdapter implements IChainAdapter {
     const lamports = amount.round(0).toNumber();
 
     const transferIx = getTransferSolInstruction({
-      source: signer.address as Address,
+      source: signer.address,
       destination: to as Address,
       amount: lamports,
     });

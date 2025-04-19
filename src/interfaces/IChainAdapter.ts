@@ -47,7 +47,7 @@ export interface IChainAdapter {
    * Subscribe to incoming transfers for the given address.
    * Returns an unsubscribe handle.
    */
-  subscribe(
+  subscribe?(
     address: string,
     onIncoming: (txHash: string, amount: Big) => void
   ): Promise<{ unsubscribe: () => void }>;

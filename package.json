@@ -25,7 +25,8 @@
     "ethers": "5.8.0",
     "gill": "^0.8.2",
     "js-sha3": "^0.9.3",
-    "tiny-secp256k1": "^2.2.3"
+    "tiny-secp256k1": "^2.2.3",
+    "tronweb": "^6.0.2"
   },
   "devDependencies": {
     "@types/big.js": "^6.2.2",
