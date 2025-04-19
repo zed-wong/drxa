@@ -1,4 +1,3 @@
-// src/adapters/bitcoin/BitcoinAdapter.ts
 import { ChainManager } from "../../core/ChainManager.js";
 import { getRpcEndpoints } from "../../constants/config.js";
 import { IChainAdapter } from "../../interfaces/IChainAdapter.js";
@@ -10,14 +9,14 @@ import * as tinysecp from "tiny-secp256k1";
 import { initEccLib } from "bitcoinjs-lib";
 import type { Signer } from "bitcoinjs-lib";
 import ECPairFactory, { ECPairInterface } from "ecpair";
-import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
+import { toXOnly } from "bitcoinjs-lib/src/psbt/bip371";
 import { payments, Psbt, networks } from "bitcoinjs-lib";
 
-// Initialize ECC library for bitcoinjs-lib
+// Initialize secp256k1 backend
 initEccLib(tinysecp);
 
 /**
- * Bitcoin adapter: derive, send, and monitor via Blockstream API using unified derivation.
+ * Bitcoin adapter: derive, send, and monitor via Blockstream API using Taproot (P2TR).
  */
 export class BitcoinAdapter implements IChainAdapter {
   readonly chainName = "bitcoin";
@@ -32,117 +31,90 @@ export class BitcoinAdapter implements IChainAdapter {
   }
 
   /**
-   * Derive a Bitcoin Taproot (P2TR) address using unified derivation parameters.
-   */
-  async deriveAddress(params: DeriveParams): Promise<string> {
-    const { priv } = this.derivePrivateKey(params);
-
-    // Initialize ECPair with correct secp256k1 backend
-    const ECPair = ECPairFactory(tinysecp);
-
-    // Create keypair from derived private key
-    const keyPair: ECPairInterface = ECPair.fromPrivateKey(Buffer.from(priv), {
-      compressed: true,
-    });
-
-    const internalPubkey = toXOnly(Buffer.from(keyPair.publicKey));
-
-    // Get Taproot (P2TR) address using bitcoinjs-lib
-    const { address } = payments.p2tr({
-      internalPubkey,
-      network: networks.bitcoin
-    });
-    if (!address) {
-      throw new Error("Failed to generate Taproot (P2TR) address");
-    }
-
-    return address;
-  }
-
-  /**
-   * Derive private key and address using unified derivation parameters.
+   * Derive a private key and Taproot address from masterSeed + params.
    */
   derivePrivateKey(params: DeriveParams): { priv: Uint8Array; address: string } {
     const entropy = deriveEntropy(this.masterSeed, params);
-    const priv = entropy.slice(0, 32); // use first 32 bytes as seed
-
-    // Initialize ECPair with correct secp256k1 backend
+    const priv = entropy.slice(0, 32);
     const ECPair = ECPairFactory(tinysecp);
-
-    // Create keypair from derived private key
-    const keyPair: ECPairInterface = ECPair.fromPrivateKey(Buffer.from(priv), {
-      compressed: true,
-    });
-
+    const keyPair: ECPairInterface = ECPair.fromPrivateKey(Buffer.from(priv), { compressed: true });
     const internalPubkey = toXOnly(Buffer.from(keyPair.publicKey));
-
-    // Get Taproot (P2TR) address using bitcoinjs-lib
-    const { address } = payments.p2tr({
-      internalPubkey,
-      network: networks.bitcoin
-    });
-    if (!address) {
-      throw new Error("Failed to generate Taproot (P2TR) address");
-    }
-
+    const { address } = payments.p2tr({ internalPubkey, network: networks.bitcoin });
+    if (!address) throw new Error("Failed to generate Taproot (P2TR) address");
     return { priv, address };
   }
 
-  async balance(params: DeriveParams, options?: { url: string}): Promise<Big> {
-    const { address } = this.derivePrivateKey(params);
-    const { data: balanceData } = await axios.get(
-      options?.url || `${this.explorerApi}/address/${address}`
-    );
-    return new Big(balanceData);
+  /**
+   * Derive just the address.
+   */
+  async deriveAddress(params: DeriveParams): Promise<string> {
+    return this.derivePrivateKey(params).address;
   }
 
   /**
-   * Build, sign, and broadcast a Bitcoin transaction via Blockstream API.
+   * Fetch confirmed balance (in sats) from Blockstream API.
+   */
+  async balance(params: DeriveParams): Promise<Big> {
+    const { address } = this.derivePrivateKey(params);
+    const { data } = await axios.get(`${this.explorerApi}/address/${address}`);
+    const funded = data.chain_stats.funded_txo_sum;
+    const spent = data.chain_stats.spent_txo_sum;
+    return new Big(funded - spent);
+  }
+
+  /**
+   * Build, sign, and broadcast a P2TR transaction.
+   * @param feeRateSatPerVByte fee rate in sats/vByte (default: 1)
    */
   async send(
     params: DeriveParams,
     to: string,
-    amount: Big
+    amount: Big,
+    feeRateSatPerVByte: number = 1
   ): Promise<{ txHash: string }> {
     const { priv, address: from } = this.derivePrivateKey(params);
-
-    // Fetch UTXOs
-    const utxos: any[] = (
+    const utxos: Array<{ txid: string; vout: number; value: number }> = (
       await axios.get(`${this.explorerApi}/address/${from}/utxo`)
     ).data;
 
-    // Build PSBT
-    const psbt = new Psbt();
+    const psbt = new Psbt({ network: networks.bitcoin });
     let inputSum = new Big(0);
+
+    // Add inputs until we cover amount + estimated fee
     for (const utxo of utxos) {
+      // need raw tx hex for nonWitnessUtxo
+      const { data: rawHex } = await axios.get(`${this.explorerApi}/tx/${utxo.txid}/hex`);
       psbt.addInput({
         hash: utxo.txid,
         index: utxo.vout,
-        nonWitnessUtxo: Buffer.from(utxo.raw_tx, "hex"),
+        nonWitnessUtxo: Buffer.from(rawHex, "hex"),
       });
       inputSum = inputSum.plus(utxo.value);
-      if (inputSum.gte(amount.plus(1000))) break;
+      // Simple fee estimate: inputs*68 + outputs*31 vbytes
+      const estVBytes = psbt.txInputs.length * 68 + (2) * 31;
+      const estFee = new Big(feeRateSatPerVByte).times(estVBytes);
+      if (inputSum.gte(amount.plus(estFee))) break;
     }
-    psbt.addOutput({ address: to, value: BigInt(amount.toString()) });
-    psbt.addOutput({ address: from, value: BigInt(inputSum.minus(amount).minus(1000).toString()) });
 
-    // Sign & finalize
+    // Final fee & outputs
+    const totalVBytes = psbt.txInputs.length * 68 + 2 * 31;
+    const fee = new Big(feeRateSatPerVByte).times(totalVBytes);
+    psbt.addOutput({ address: to, value: BigInt(amount.toString()) });
+    psbt.addOutput({ address: from, value: BigInt(inputSum.minus(amount).minus(fee).toString()) });
+
+    // Sign and finalize
     const ECPair = ECPairFactory(tinysecp);
-    const keyPair: ECPairInterface = ECPair.fromPrivateKey(
-      Buffer.from(priv),
-      { compressed: true }
-    );
+    const keyPair = ECPair.fromPrivateKey(Buffer.from(priv), { compressed: true });
     psbt.signAllInputs(wrapAsSigner(keyPair));
     psbt.finalizeAllInputs();
-    const rawTx = psbt.extractTransaction().toHex();
 
-    // Broadcast
-    const resp = await axios.post(`${this.explorerApi}/tx`, rawTx);
-    return { txHash: resp.data };
+    const rawTx = psbt.extractTransaction().toHex();
+    const { data: txid } = await axios.post(`${this.explorerApi}/tx`, rawTx);
+    return { txHash: txid };
   }
 
   /**
-   * Poll the Blockstream API for new transactions to this address.
+   * Poll for new transactions to this address every 15s.
    */
   async subscribe(
     address: string,
@@ -151,9 +123,7 @@ export class BitcoinAdapter implements IChainAdapter {
     const seen = new Set<string>();
     const interval = setInterval(async () => {
       try {
-        const { data: txs } = await axios.get(
-          `${this.explorerApi}/address/${address}/txs`
-        );
+        const { data: txs } = await axios.get(`${this.explorerApi}/address/${address}/txs`);
         for (const tx of txs) {
           if (!seen.has(tx.txid)) {
             seen.add(tx.txid);
@@ -168,18 +138,19 @@ export class BitcoinAdapter implements IChainAdapter {
   }
 }
 
-// Custom signer adapter for bitcoinjs-lib PSBT
+/**
+ * Adapter signer wrapper supporting Schnorr for P2TR.
+ */
 function wrapAsSigner(ecpair: ECPairInterface): Signer {
   return {
     publicKey: Buffer.from(ecpair.publicKey),
     sign: (hash: Buffer) => Buffer.from(ecpair.sign(hash)),
-    signSchnorr: undefined, // Not needed for P2PKH
+    signSchnorr: (hash: Buffer) => Buffer.from((ecpair as any).signSchnorr(hash)),
   };
 }
 
 /**
- * Register Bitcoin adapter in the ChainManager.
- * Call once during SDK initialization.
+ * Register BitcoinAdapter on startup.
  */
 export function registerBitcoinAdapter(masterSeed: Uint8Array) {
   new BitcoinAdapter(masterSeed);
