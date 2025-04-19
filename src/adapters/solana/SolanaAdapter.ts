@@ -5,15 +5,13 @@ import {
   createSolanaClient,
   createTransaction,
   signTransactionMessageWithSigners,
+  createKeyPairSignerFromBytes,
+  type Address,
 } from "gill";
-import {
-  Keypair,
-  PublicKey,
-  SystemProgram,
-} from "@solana/web3.js"; // only for keypair + instruction builders
+import { getTransferSolInstruction } from "gill/programs";
+import Big from "big.js";
 import { ChainManager } from "../../core/ChainManager.js";
 import { getRpcEndpoints } from "../../constants/config.js";
-import Big from "big.js";
 
 export class SolanaAdapter implements IChainAdapter {
   readonly chainName = "solana";
@@ -25,9 +23,7 @@ export class SolanaAdapter implements IChainAdapter {
 
   constructor(masterSeed: Uint8Array) {
     const { http } = getRpcEndpoints("solana");
-    const { rpc, sendAndConfirmTransaction } = createSolanaClient({
-      urlOrMoniker: http,
-    });
+    const { rpc, sendAndConfirmTransaction } = createSolanaClient({ urlOrMoniker: http });
     this.rpc = rpc;
     this.sendAndConfirm = sendAndConfirmTransaction;
     this.masterSeed = masterSeed;
@@ -37,91 +33,76 @@ export class SolanaAdapter implements IChainAdapter {
   /** Derive a Base58 Solana address from our unified seed */
   async deriveAddress(params: DeriveParams): Promise<string> {
     const { priv } = deriveForChain(this.masterSeed, params);
-    return Keypair.fromSeed(priv).publicKey.toBase58();
+    const signer = await createKeyPairSignerFromBytes(priv);
+    return signer.address;
   }
 
-  /**
-   * Get the balance of a derived address.
-   * Builds a gill‐compatible transaction, signs, and sends it.
-   */
+  /** Get the balance of a derived address */
   async balance(params: DeriveParams): Promise<Big> {
-    return new Big(0); 
+    const { priv } = deriveForChain(this.masterSeed, params);
+    const signer = await createKeyPairSignerFromBytes(priv);
+    const { value } = await this.rpc.getBalance(signer.address as Address).send();
+    return new Big(value);
   }
 
-  /**
-   * Send lamports from a derived address.
-   * Builds a gill‐compatible transaction, signs, and sends it.
-   */
+  /** Send lamports from a derived address */
   async send(
     params: DeriveParams,
     to: string,
     amount: Big
   ): Promise<{ txHash: string }> {
-    // 1) Derive the signer keypair
-    // const { priv } = deriveForChain(this.masterSeed, params);
-    // const signer = Keypair.fromSeed(priv);
+    const { priv } = deriveForChain(this.masterSeed, params);
+    const signer = await createKeyPairSignerFromBytes(priv);
+    const lamports = amount.round(0).toNumber();
 
-    // // 2) Prepare fields
-    // const lamports = amount.toNumber();
-    // const recipient = new PublicKey(to);
+    const transferIx = getTransferSolInstruction({
+      source: signer.address as Address,
+      destination: to as Address,
+      amount: lamports,
+    });
 
-    // // 3) Fetch latest blockhash
-    // const { value: bh } = await this.rpc.getLatestBlockhash().send();
+    const { value: blockhashInfo } = await this.rpc.getLatestBlockhash().send();
+    const tx = createTransaction({
+      version: "legacy",
+      feePayer: signer.address as Address,
+      instructions: [transferIx],
+      latestBlockhash: blockhashInfo,
+    });
 
-    // // 4) Build a versioned transaction
-    // const tx = createTransaction({
-    //   version: "legacy",
-    //   feePayer: signer.publicKey,
-    //   instructions: [
-    //     SystemProgram.transfer({
-    //       fromPubkey: signer.publicKey,
-    //       toPubkey: recipient,
-    //       lamports,
-    //     }),
-    //   ],
-    //   latestBlockhash: bh.blockhash,
-    // });
-
-    // // 5) Sign with our derived Keypair
-    // const signedTx = await signTransactionMessageWithSigners(tx, [signer]);
-
-    // // 6) Send and confirm
-    // const txHash = await this.sendAndConfirm(signedTx);
-    return { txHash: '' };
+    const signedTx = await signTransactionMessageWithSigners(tx, [signer]);
+    const txHash = await this.sendAndConfirm(signedTx);
+    return { txHash };
   }
 
-  /**
-   * Poll for new signatures every 10s on the given address (string).
-   */
+  /** Poll for new signatures every 10s on the given address */
   async subscribe(
     address: string,
     onIncoming: (txHash: string, amount: Big) => void
   ): Promise<{ unsubscribe: () => void }> {
-    // const seen = new Set<string>();
+    const addr = address as Address;
+    const seen = new Set<string>();
+    const intervalId = setInterval(async () => {
+      try {
+        const sigInfos = await this.rpc
+          .getSignaturesForAddress(addr, { limit: 10 })
+          .send();
 
-    // const id = setInterval(async () => {
-    //   try {
-    //     // Pass the address as a string here
-    //     const sigs = await this.rpc
-    //       .getSignaturesForAddress(address, { limit: 10 })
-    //       .send();
+        for (const info of sigInfos) {
+          if (!seen.has(info.signature)) {
+            seen.add(info.signature);
+            onIncoming(info.signature, new Big(0));
+          }
+        }
+      } catch (err) {
+        console.error("[SolanaAdapter] poll error:", err);
+      }
+    }, 10_000);
 
-    //     for (const info of sigs) {
-    //       if (!seen.has(info.signature)) {
-    //         seen.add(info.signature);
-    //         onIncoming(info.signature, new Big(0));
-    //       }
-    //     }
-    //   } catch (err) {
-    //     console.error("[SolanaAdapter] poll error:", err);
-    //   }
-    // }, 10_000);
-
-    return { unsubscribe: () => {} };
+    return { unsubscribe: () => clearInterval(intervalId) };
   }
 }
 
-/** Auto‐register helper */
+/** Auto-register helper */
 export function registerSolanaAdapter(masterSeed: Uint8Array) {
   new SolanaAdapter(masterSeed);
 }
