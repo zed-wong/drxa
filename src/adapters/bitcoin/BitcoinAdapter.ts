@@ -1,15 +1,19 @@
 // src/adapters/bitcoin/BitcoinAdapter.ts
-import { ChainManager } from "../../core/ChainManager";
-import { getRpcEndpoints } from "../../constants/config";
-import { IChainAdapter } from "../../interfaces/IChainAdapter";
-import { deriveForChain, DeriveParams } from "../../utils/derivation";
+import { ChainManager } from "../../core/ChainManager.js";
+import { getRpcEndpoints } from "../../constants/config.js";
+import { IChainAdapter } from "../../interfaces/IChainAdapter.js";
+import { deriveEntropy, DeriveParams } from "../../utils/derivation.js";
 import axios from "axios";
 import { Buffer } from "buffer";
 import * as tinysecp from "tiny-secp256k1";
+import { initEccLib } from "bitcoinjs-lib";
 import type { Signer } from "bitcoinjs-lib";
 import { payments, Psbt, networks } from "bitcoinjs-lib";
 import ECPairFactory, { ECPairInterface } from "ecpair";
-import { toXOnly } from 'bitcoinjs-lib/src/cjs/psbt/bip371'
+import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371'
+
+// Initialize ECC library for bitcoinjs-lib
+initEccLib(tinysecp);
 
 /**
  * Bitcoin adapter: derive, send, and monitor via Blockstream API using unified derivation.
@@ -30,7 +34,7 @@ export class BitcoinAdapter implements IChainAdapter {
    * Derive a Bitcoin Taproot (P2TR) address using unified derivation parameters.
    */
   async deriveAddress(params: DeriveParams): Promise<string> {
-    const { priv } = deriveForChain(this.masterSeed, params);
+    const { priv } = this.derivePrivateKey(params);
 
     // Initialize ECPair with correct secp256k1 backend
     const ECPair = ECPairFactory(tinysecp);
@@ -45,7 +49,6 @@ export class BitcoinAdapter implements IChainAdapter {
     // Get Taproot (P2TR) address using bitcoinjs-lib
     const { address } = payments.p2tr({
       internalPubkey,
-      // pubkey: Buffer.from(keyPair.publicKey),
       network: networks.bitcoin
     });
     if (!address) {
@@ -53,6 +56,35 @@ export class BitcoinAdapter implements IChainAdapter {
     }
 
     return address;
+  }
+
+  /**
+   * Derive private key and address using unified derivation parameters.
+   */
+  derivePrivateKey(params: DeriveParams): { priv: Uint8Array; address: string } {
+    const entropy = deriveEntropy(this.masterSeed, params);
+    const priv = entropy.slice(0, 32); // use first 32 bytes as seed
+
+    // Initialize ECPair with correct secp256k1 backend
+    const ECPair = ECPairFactory(tinysecp);
+
+    // Create keypair from derived private key
+    const keyPair: ECPairInterface = ECPair.fromPrivateKey(Buffer.from(priv), {
+      compressed: true,
+    });
+
+    const internalPubkey = toXOnly(Buffer.from(keyPair.publicKey));
+
+    // Get Taproot (P2TR) address using bitcoinjs-lib
+    const { address } = payments.p2tr({
+      internalPubkey,
+      network: networks.bitcoin
+    });
+    if (!address) {
+      throw new Error("Failed to generate Taproot (P2TR) address");
+    }
+
+    return { priv, address };
   }
 
   /**
@@ -69,7 +101,7 @@ export class BitcoinAdapter implements IChainAdapter {
       chain:  "bitcoin",
       index:  path,
     };
-    const { priv, address: from } = deriveForChain(this.masterSeed, params);
+    const { priv, address: from } = this.derivePrivateKey(params);
 
     // Fetch UTXOs
     const utxos: any[] = (

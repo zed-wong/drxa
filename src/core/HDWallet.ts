@@ -1,6 +1,6 @@
 // src/core/HDWallet.ts
-import { deriveForChain, DeriveParams } from "../utils/derivation";
-import { ChainManager } from "./ChainManager";
+import { DeriveParams } from "../utils/derivation.js";
+import { ChainManager } from "./ChainManager.js";
 
 /**
  * HDWallet wraps a master seed and provides unified derive/send/subscribe APIs
@@ -12,8 +12,8 @@ export class HDWallet {
    * Derive an address for a given chain and parameters
    */
   async deriveAddress(params: DeriveParams): Promise<string> {
-    const { address } = deriveForChain(this.masterSeed, params);
-    return address;
+    const adapter = ChainManager.getAdapter(params.chain);
+    return adapter.deriveAddress(params);
   }
 
   /**

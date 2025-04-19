@@ -2,16 +2,16 @@
 import * as ecc from 'tiny-secp256k1';
 import { initEccLib } from 'bitcoinjs-lib';
 
-import { HDWallet } from "./core/HDWallet";
-import { setRpcOverride } from "./constants/config";
-import type { RpcEndpoints } from "./constants/config";
-import { registerEvmAdapters } from "./adapters/evm/EvmAdapter";
-import { registerBitcoinAdapter } from "./adapters/bitcoin/BitcoinAdapter";
+import { HDWallet } from "./core/HDWallet.js";
+import { setRpcOverride } from "./constants/config.js";
+import type { RpcEndpoints } from "./constants/config.js";
+import { registerEvmAdapters } from "./adapters/evm/EvmAdapter.js";
+import { registerBitcoinAdapter } from "./adapters/bitcoin/BitcoinAdapter.js";
 
 initEccLib(ecc);
 export interface SdkOptions {
   /** Your 32-byte Ed25519 master seed */
-  seed: Uint8Array;
+  seed: Uint8Array | string;
 
   /** Optional overrides for chain RPC, WS, explorer, and explorer API endpoints */
   rpcEndpoints?: Record<string, RpcEndpoints>;
@@ -22,7 +22,11 @@ export class WalletSDK {
   public wallet: HDWallet;
 
   constructor(options: SdkOptions) {
-    this.seed = options.seed;
+    if (typeof options.seed === 'string') {
+      this.seed = Uint8Array.from(Buffer.from(options.seed, 'hex'));
+    } else {
+      this.seed = options.seed;
+    }
 
     if (options.rpcEndpoints) {
       Object.entries(options.rpcEndpoints).forEach(([chain, eps]) => {

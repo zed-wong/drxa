@@ -1,9 +1,11 @@
 // src/adapters/evm/EvmAdapter.ts
-import { IChainAdapter } from "../../interfaces/IChainAdapter";
-import { deriveForChain, DeriveParams } from "../../utils/derivation";
+import { IChainAdapter } from "../../interfaces/IChainAdapter.js";
+import { deriveEntropy, DeriveParams } from "../../utils/derivation.js";
+import { ChainManager } from "../../core/ChainManager.js";
+import { getRpcEndpoints } from "../../constants/config.js";
+import { keccak256 } from "js-sha3";
 import { providers, Wallet, BigNumber } from "ethers";
-import { ChainManager } from "../../core/ChainManager";
-import { getRpcEndpoints } from "../../constants/config";
+import { getPublicKey as getSecp256k1Pub } from "@noble/secp256k1";
 
 export interface EvmConfig {
   chainName: string;
@@ -32,8 +34,20 @@ export class EvmAdapter implements IChainAdapter {
     ChainManager.register(this);
   }
 
+  derivePrivateKey(params: DeriveParams): { priv: Uint8Array; address: string } {
+    const entropy = deriveEntropy(this.masterSeed, params);
+    const priv = entropy.slice(0, 32); // use first 32 bytes as seed
+
+    // secp256k1: generate public key, remove prefix, then hash via keccak256
+    const pub = getSecp256k1Pub(priv, true);
+    const hash = keccak256(pub.slice(1));
+    const address = `0x${hash.slice(-40)}`;
+
+    return { priv, address };
+  }
+
   async deriveAddress(params: DeriveParams): Promise<string> {
-    const { address } = deriveForChain(this.masterSeed, params);
+    const { address } = this.derivePrivateKey(params);
     return address;
   }
 
@@ -42,7 +56,7 @@ export class EvmAdapter implements IChainAdapter {
     to: string,
     amount: number
   ): Promise<{ txHash: string }> {
-    const { priv } = deriveForChain(this.masterSeed, {
+    const { priv } = this.derivePrivateKey({
       scope: "wallet",
       userId: "default",
       chain: this.chainName,

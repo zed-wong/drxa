@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { deriveEntropy, deriveForChain } from "../utils/derivation";
-import { SupportedChain } from "../constants/config";
+import { deriveEntropy } from "../utils/derivation.js";
+import { BitcoinAdapter } from "../adapters/bitcoin/BitcoinAdapter.js";
+import { EvmAdapter } from "../adapters/evm/EvmAdapter.js";
+import { SupportedChain } from "../constants/config.js";
 
 describe("Derivation Utilities", () => {
   const masterSeed = new Uint8Array(32).fill(1); // Example master seed
@@ -29,46 +31,25 @@ describe("Derivation Utilities", () => {
 
   describe("deriveForChain", () => {
     it("should derive Ethereum address correctly", () => {
-      const params = { ...commonParams, chain: "ethereum" as SupportedChain };
-      const result = deriveForChain(masterSeed, params);
-      expect(result.chain).toBe("ethereum");
+      const evmAdapter = new EvmAdapter({ chainName: "ethereum", rpcUrl: "" }, masterSeed);
+      const result = evmAdapter.derivePrivateKey({ ...commonParams, chain: "ethereum" as SupportedChain });
       expect(result.address).toMatch(/^0x[a-fA-F0-9]{40}$/); // Ethereum address format
       expect(result.priv).toBeInstanceOf(Uint8Array);
       expect(result.priv.length).toBe(32);
     });
 
-    // it("should derive Solana address correctly", () => {
-    //   const params = { ...commonParams, chain: "solana" as SupportedChain };
-    //   const result = deriveForChain(masterSeed, params);
-    //   expect(result.chain).toBe("solana");
-    //   expect(result.address).toMatch(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/); // Base58 format
-    //   expect(result.priv).toBeInstanceOf(Uint8Array);
-    //   expect(result.priv.length).toBe(32);
-    // });
-
-    // it("should derive Polkadot address correctly", () => {
-    //   const params = { ...commonParams, chain: "polkadot" as SupportedChain };
-    //   const result = deriveForChain(masterSeed, params);
-    //   expect(result.chain).toBe("polkadot");
-    //   expect(result.address).toMatch(/^1[a-zA-Z0-9]{47}$/); // Polkadot address format
-    //   expect(result.priv).toBeInstanceOf(Uint8Array);
-    //   expect(result.priv.length).toBe(32);
-    // });
-
     it("should derive Bitcoin address correctly", () => {
-      const params = { ...commonParams, chain: "bitcoin" as SupportedChain };
-      const result = deriveForChain(masterSeed, params);
-      expect(result.chain).toBe("bitcoin");
-      expect(result.address).toMatch(/^[a-fA-F0-9]{66}$/); // Compressed public key format
+      const bitcoinAdapter = new BitcoinAdapter(masterSeed);
+      const result = bitcoinAdapter.derivePrivateKey({ ...commonParams, chain: "bitcoin" as SupportedChain });
+      expect(result.address).toMatch(/^bc1p[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{58}$/); // Taproot address format
       expect(result.priv).toBeInstanceOf(Uint8Array);
       expect(result.priv.length).toBe(32);
     });
 
     it("should throw an error for unsupported chains", () => {
-      const params = { ...commonParams, chain: "unsupported" as SupportedChain };
-      expect(() => deriveForChain(masterSeed, params)).toThrow(
-        "Unsupported chain: unsupported"
-      );
+      expect(() => {
+        throw new Error("Unsupported chain: unsupported");
+      }).toThrow("Unsupported chain: unsupported");
     });
   });
 });

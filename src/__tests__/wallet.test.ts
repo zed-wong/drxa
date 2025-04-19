@@ -1,11 +1,11 @@
 // src/__tests__/wallet.test.ts
 import { describe, it, expect } from "vitest";
-import { HDWallet } from "../core/HDWallet";
-import { registerEvmAdapters } from "../adapters/evm/EvmAdapter";
-import { registerBitcoinAdapter } from "../adapters/bitcoin/BitcoinAdapter";
-import { registerSolanaAdapter } from "../adapters/solana/SolanaAdapter";
+import { HDWallet } from "../core/HDWallet.js";
+import { registerEvmAdapters } from "../adapters/evm/EvmAdapter.js";
+import { registerBitcoinAdapter } from "../adapters/bitcoin/BitcoinAdapter.js";
+import { registerSolanaAdapter } from "../adapters/solana/SolanaAdapter.js";
 
-const SEED = new Uint8Array(32); // dummy seed (all zero)
+const SEED = new Uint8Array(32);
 
 describe("HDWallet Derivation", () => {
   it("derives a valid Ethereum address", async () => {
@@ -21,7 +21,7 @@ describe("HDWallet Derivation", () => {
     expect(addr).toMatch(/^0x[0-9a-fA-F]{40}$/);
   });
 
-  it("derives a valid Bitcoin P2TR address", async () => {
+  it("derives a valid Bitcoin Taproot (P2TR) address", async () => {
     registerBitcoinAdapter(SEED);
     const wallet = new HDWallet(SEED);
     const addr = await wallet.deriveAddress({
