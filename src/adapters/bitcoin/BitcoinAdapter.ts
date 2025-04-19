@@ -120,8 +120,8 @@ export class BitcoinAdapter implements IChainAdapter {
       inputSum += utxo.value;
       if (inputSum >= Number(amount) + 1000) break;
     }
-    psbt.addOutput({ address: to, value: Number(amount) });
-    psbt.addOutput({ address: from, value: inputSum - Number(amount) - 1000 });
+    psbt.addOutput({ address: to, value: BigInt(amount) });
+    psbt.addOutput({ address: from, value: BigInt(inputSum) - BigInt(amount) - BigInt(1000) });
 
     // Sign & finalize
     const ECPair = ECPairFactory(tinysecp);

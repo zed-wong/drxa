@@ -1,4 +1,4 @@
-import { DeriveParams } from "../utils/derivation";
+import { DeriveParams } from "../utils/derivation.js";
 
 // src/interfaces/IChainAdapter.ts
 export interface IChainAdapter {

@@ -33,7 +33,7 @@ export class HDWallet {
    */
   async subscribe(
     params: DeriveParams,
-    onIncoming: (txHash: string, amount: bigint) => void
+    onIncoming: (txHash: string, amount: number | bigint) => void
   ): Promise<{ unsubscribe: () => void }> {
     const address = await this.deriveAddress(params);
     const adapter = ChainManager.getAdapter(params.chain);

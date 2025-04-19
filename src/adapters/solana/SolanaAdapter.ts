@@ -1,6 +1,6 @@
 // src/adapters/solana/SolanaAdapter.ts
-import { IChainAdapter } from "../../interfaces/IChainAdapter";
-import { deriveForChain, DeriveParams } from "../../utils/derivation";
+import { IChainAdapter } from "../../interfaces/IChainAdapter.js";
+import { deriveForChain, DeriveParams } from "../../utils/derivation.js";
 import {
   Connection,
   Keypair,
@@ -8,13 +8,12 @@ import {
   SystemProgram,
   Transaction,
   sendAndConfirmTransaction,
-  LAMPORTS_PER_SOL,
 } from "@solana/web3.js";
-import { ChainManager } from "../../core/ChainManager";
-import { getRpcEndpoints } from "../../constants/config";
+import { ChainManager } from "../../core/ChainManager.js";
+import { getRpcEndpoints } from "../../constants/config.js";
 
 /**
- * Solana adapter: derive, send, and monitor SOL transfers.
+ * SolanaAdapter: Handles SOL address derivation, transfers, and monitoring.
  */
 export class SolanaAdapter implements IChainAdapter {
   readonly chainName = "solana";
@@ -22,84 +21,75 @@ export class SolanaAdapter implements IChainAdapter {
   private masterSeed: Uint8Array;
 
   constructor(masterSeed: Uint8Array) {
-    const { http, ws } = getRpcEndpoints("solana");
-    // we only need HTTP for send/derive; ws is unused here
+    const { http } = getRpcEndpoints("solana");
     this.connection = new Connection(http, "confirmed");
     this.masterSeed = masterSeed;
     ChainManager.register(this);
   }
 
-  /** 
-   * Derive a Solana address (Base58 pubkey) via unified derivation.
+  /**
+   * Derive a Solana address (Base58 public key) using unified derivation.
    */
   async deriveAddress(params: DeriveParams): Promise<string> {
-    const { address } = deriveForChain(this.masterSeed, params);
-    // deriveForChain maps "solana" to a bs58-encoded ed25519 pubkey
-    return address;
+    const { priv } = deriveForChain(this.masterSeed, params);
+    const keypair = Keypair.fromSeed(priv); // deterministic keypair
+    return keypair.publicKey.toBase58(); // Solana address
   }
 
   /**
-   * Send lamports from a derived address to `to`.
-   * `amount` is in lamports (1 SOL = 10^9 lamports).
+   * Send lamports from a derived address to a recipient.
    */
-  async send(
-    path: string,
-    to: string,
-    amount: number | bigint
-  ): Promise<{ txHash: string }> {
+  async send(path: string, to: string, amount: number | bigint): Promise<{ txHash: string }> {
     const params: DeriveParams = {
-      scope:  "wallet",
+      scope: "wallet",
       userId: "default",
-      chain:  "solana",
-      index:  path,
+      chain: "solana",
+      index: path,
     };
-    // derive the private key seed
+
     const { priv } = deriveForChain(this.masterSeed, params);
     const keypair = Keypair.fromSeed(priv);
 
-    const tx = new Transaction().add(
+    const transaction = new Transaction().add(
       SystemProgram.transfer({
         fromPubkey: keypair.publicKey,
-        toPubkey:  new PublicKey(to),
-        lamports:  typeof amount === "bigint" ? Number(amount) : amount,
+        toPubkey: new PublicKey(to),
+        lamports: typeof amount === "bigint" ? Number(amount) : amount,
       })
     );
 
-    const sig = await sendAndConfirmTransaction(
-      this.connection,
-      tx,
-      [keypair],
-      { commitment: "confirmed" }
-    );
-    return { txHash: sig };
+    const signature = await sendAndConfirmTransaction(this.connection, transaction, [keypair], {
+      commitment: "confirmed",
+    });
+
+    return { txHash: signature };
   }
 
   /**
-   * Poll getSignaturesForAddress every 10s and emit unseen transactions.
+   * Monitor incoming transactions for a specific address.
    */
   async subscribe(
     address: string,
     onIncoming: (txHash: string, amount: number | bigint) => void
   ): Promise<{ unsubscribe: () => void }> {
-    const seen = new Set<string>();
-    const pubkey = new PublicKey(address);
+    const seenSignatures = new Set<string>();
+    const publicKey = new PublicKey(address);
 
-    const iv = setInterval(async () => {
+    const intervalId = setInterval(async () => {
       try {
-        const sigInfos = await this.connection.getSignaturesForAddress(pubkey, { limit: 10 });
-        for (const info of sigInfos) {
-          if (!seen.has(info.signature)) {
-            seen.add(info.signature);
-            // lamports amount not easily extractable here; emit 0
-            onIncoming(info.signature, 0n);
+        const signatures = await this.connection.getSignaturesForAddress(publicKey, { limit: 10 });
+        for (const signatureInfo of signatures) {
+          if (!seenSignatures.has(signatureInfo.signature)) {
+            seenSignatures.add(signatureInfo.signature);
+            onIncoming(signatureInfo.signature, 0n); // Note: amount is not retrievable here
           }
         }
-      } catch (err) {
-        console.error("Solana subscribe error", err);
+      } catch (error) {
+        console.error("Error in Solana subscription:", error);
       }
     }, 10_000);
 
-    return { unsubscribe: () => clearInterval(iv) };
+    return { unsubscribe: () => clearInterval(intervalId) };
   }
 }
 
