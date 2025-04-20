@@ -25,18 +25,14 @@ describe("Test all SUPPORTED_CHAINS", () => {
   SUPPORTED_CHAINS.forEach((chain) => {
     it(`should derive address for ${chain}`, async () => {
       
-
-
       if (
         chain === 'tron' || 
-        chain === 'solana' || 
         chain === 'polkadot' ||
         chain === 'sonic'
       ) {
         console.log(`Skipping unsupported chain: ${chain}`);
         return;
       }
-
 
 
       const address = await wallet.deriveAddress({
