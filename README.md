@@ -1,6 +1,6 @@
 # daddr
 
-`daddr` is a deterministic multi-chain address SDK for Node.js. It allows you to derive and manage multiple addresses from an ed25519 private key or a 32 bits seed.
+`daddr` is a deterministic multi-chain address SDK for Node.js. It allows you to derive 1 billion addresses with 1 single ed25519 private key or 32 bits seed.
 
 ## Features
 

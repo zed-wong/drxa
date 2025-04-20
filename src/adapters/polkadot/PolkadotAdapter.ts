@@ -1,7 +1,7 @@
+import Big from 'big.js';
 import { ApiPromise, WsProvider } from '@polkadot/api';
 import { Keyring } from '@polkadot/keyring';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import Big from 'big.js';
 import type { AccountInfo } from '@polkadot/types/interfaces';
 import { deriveEntropy, DeriveParams } from "../../utils/derivation.js";
 import { IChainAdapter } from "../../interfaces/IChainAdapter.js";
