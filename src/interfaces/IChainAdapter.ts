@@ -21,14 +21,22 @@ export interface IChainAdapter {
    * @param params derivation path or identifier
    * @param to destination address
    * @param amount amount in smallest unit (e.g., wei, lamports)
+   * @param config optional configuration object
    */
   send(
     params: DeriveParams,
     to: string,
-    amount: Big
+    amount: Big,
+    config? : any
   ): Promise<{ txHash: string }>;
 
 
+  /**
+   * Estimate the fee for a transaction from a derived address.
+   * @param params derivation path or identifier
+   * @param to destination address
+   * @param amount amount in smallest unit (e.g., wei, lamports)
+   */
   estimateFee?(
     params: DeriveParams,
     to: string,
@@ -36,6 +44,18 @@ export interface IChainAdapter {
   ): Promise<{
     fee: unknown;
   }>;
+
+  /**
+   * Sign a transaction using the derived address.
+   * @param params derivation path or identifier
+   * @param tx transaction object to sign
+   * @param config optional configuration object
+   */
+  sign?(
+    params: DeriveParams,
+    tx: unknown,
+    config?: any
+  ): Promise<unknown>;
 
   /**
    * Get the transaction history for a derived address.
