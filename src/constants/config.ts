@@ -7,6 +7,10 @@ export interface RpcEndpoints {
   chainId?: string | number;
 }
 
+export interface ChainEndpoints extends RpcEndpoints {
+  
+}
+
 // Default RPC, WS, Explorer, and Explorer API endpoints for EVM chains
 export const DEFAULT_EVM_RPC_URLS: Record<string, RpcEndpoints> = {
   ethereum: {
@@ -75,7 +79,7 @@ export const DEFAULT_EVM_RPC_URLS: Record<string, RpcEndpoints> = {
 }
 
 // Default RPC, WS, Explorer, and Explorer API endpoints for all chains
-export const DEFAULT_RPC_URLS: Record<string, RpcEndpoints> = {
+export const DEFAULT_RPC_URLS: Record<string, ChainEndpoints> = {
   ...DEFAULT_EVM_RPC_URLS,
   tron: {
     http: "https://tron-rpc.publicnode.com",
@@ -99,8 +103,8 @@ export const DEFAULT_RPC_URLS: Record<string, RpcEndpoints> = {
     explorerApi: "https://blockstream.info/api",
   },
   aptos: {
-    http: "https://fullnode.mainnet.aptoslabs.com/v1",
-    ws: "wss://fullnode.mainnet.aptoslabs.com/v1",
+    http: "https://api.mainnet.aptoslabs.com/v1",
+    ws: "wss://api.mainnet.aptoslabs.com/v1",
     explorer: "https://explorer.aptoslabs.com",
     explorerApi: "https://api.aptos.dev",
   }

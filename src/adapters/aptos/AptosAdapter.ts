@@ -1,7 +1,7 @@
-import { IChainAdapter } from "../../interfaces/IChainAdapter.js";
-import { deriveEntropy, DeriveParams } from "../../utils/derivation.js";
 import { ChainManager } from "../../core/ChainManager.js";
 import { getRpcEndpoints } from "../../constants/config.js";
+import { IChainAdapter } from "../../interfaces/IChainAdapter.js";
+import { deriveEntropy, DeriveParams } from "../../utils/derivation.js";
 import Big from "big.js";
 import {
   Aptos,
@@ -41,11 +41,12 @@ export class AptosAdapter implements IChainAdapter {
 
   async balance(params: DeriveParams): Promise<Big> {
     const acct = await this.deriveAccount(params);
-    const store = await this.sdk.getAccountResource<{ coin: { value: string } }>({
+    // NOT WORKING YET
+    const balance = await this.sdk.getAccountAPTAmount({
       accountAddress: acct.accountAddress,
-      resourceType: "0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>",
     });
-    return Big(store.coin.value);
+    
+    return Big(balance);
   }
 
   async send(

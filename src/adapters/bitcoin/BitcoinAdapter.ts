@@ -57,6 +57,8 @@ export class BitcoinAdapter implements IChainAdapter {
   async balance(params: DeriveParams): Promise<Big> {
     const { address } = this.derivePrivateKey(params);
     const { data } = await axios.get(`${this.explorerApi}/address/${address}`);
+    console.log("Balance data:", JSON.stringify(data));
+    console.log(`${this.explorerApi}/address/${address}`)
     const funded = data.chain_stats.funded_txo_sum;
     const spent = data.chain_stats.spent_txo_sum;
     return new Big(funded - spent);

@@ -1,8 +1,8 @@
 // examples/2_adapters/polkadot_example.ts
 import { exit } from 'node:process';
+import type { DeriveParams } from "../../src/utils/derivation.js";
 import { generateEd25519Keypair, privToSeed } from "../../src/utils/keypair.js";
 import { PolkadotAdapter, PolkadotConfig } from "../../src/adapters/polkadot/PolkadotAdapter.js";
-import type { DeriveParams } from "../../src/utils/derivation.js";
 
 (async () => {
   const { privateKey } = await generateEd25519Keypair();

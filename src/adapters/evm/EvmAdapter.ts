@@ -1,6 +1,6 @@
+import { ChainManager } from "../../core/ChainManager.js";
 import { IChainAdapter } from "../../interfaces/IChainAdapter.js";
 import { deriveEntropy, DeriveParams } from "../../utils/derivation.js";
-import { ChainManager } from "../../core/ChainManager.js";
 import { getRpcEndpoints, SUPPORTED_EVM_CHAINS } from "../../constants/config.js";
 import Big from "big.js";
 import { keccak256 } from "js-sha3";

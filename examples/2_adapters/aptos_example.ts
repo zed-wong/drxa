@@ -26,21 +26,21 @@ import { generateEd25519Keypair, privToSeed } from "../../src/utils/keypair.js";
   const derivedAddress = await aptosAdapter.deriveAddress(deriveParams);
   console.log("Derived Aptos Address:", derivedAddress);
 
-  // 3. Fetch AptosCoin balance
-  const balance = await aptosAdapter.balance(deriveParams);
-  console.log("AptosCoin Balance (OCTOS):", balance.toString());
+  // 3. Fetch AptosCoin balance (not working yet)
+  // const balance = await aptosAdapter.balance(deriveParams);
+  // console.log("AptosCoin Balance (OCTOS):", balance.toString());
 
-  // 4. Send AptosCoin if balance is sufficient
-  if (balance.gt(0)) {
-    const recipient = "f1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0"; // replace with real hex‑encoded address
-    const amount = Big(1); // send 1 OCTO
+  // // 4. Send AptosCoin if balance is sufficient
+  // if (balance.gt(0)) {
+  //   const recipient = "f1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0"; // replace with real hex‑encoded address
+  //   const amount = Big(1); // send 1 OCTO
 
-    console.log(`Sending ${amount.toString()} OCTO to ${recipient}...`);
-    const { txHash } = await aptosAdapter.send(deriveParams, recipient, amount);
-    console.log("Transaction Hash:", txHash);
-  } else {
-    console.log("Insufficient AptosCoin balance, skipping send.");
-  }
+  //   console.log(`Sending ${amount.toString()} OCTO to ${recipient}...`);
+  //   const { txHash } = await aptosAdapter.send(deriveParams, recipient, amount);
+  //   console.log("Transaction Hash:", txHash);
+  // } else {
+  //   console.log("Insufficient AptosCoin balance, skipping send.");
+  // }
 
-  exit(0);
+  // exit(0);
 })();

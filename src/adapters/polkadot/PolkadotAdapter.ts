@@ -1,6 +1,6 @@
 import Big from 'big.js';
-import { ApiPromise, WsProvider } from '@polkadot/api';
 import { Keyring } from '@polkadot/keyring';
+import { ApiPromise, WsProvider } from '@polkadot/api';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountInfo } from '@polkadot/types/interfaces';
 import { ChainManager } from "../../core/ChainManager.js";
