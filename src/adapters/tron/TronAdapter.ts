@@ -5,10 +5,12 @@ import { keccak256 } from "js-sha3";
 import { getPublicKey as getSecp256k1Pub } from "@noble/secp256k1";
 import { TronWeb } from "tronweb";
 import Big from "big.js";
+import { ChainManager } from "../../core/ChainManager.js";
+import { getRpcEndpoints } from "../../constants/config.js";
 
 export interface TronConfig {
   /** HTTP endpoint for full node */
-  fullHost: string;
+  fullHost?: string;
   /** Optional gRPC/solidity host (defaults to fullHost) */
   solidityHost?: string;
   /** Optional event server (defaults to empty) */
@@ -18,15 +20,19 @@ export interface TronConfig {
 export class TronAdapter implements IChainAdapter {
   public readonly chainName = "tron";
   private tronWeb: TronWeb;
-  private masterSeed: Uint8Array;
+  private readonly config: TronConfig;
+  private readonly masterSeed: Uint8Array;
 
-  constructor(config: TronConfig, masterSeed: Uint8Array) {
+  constructor(masterSeed: Uint8Array, config?: TronConfig) {
+    const { http } = getRpcEndpoints('tron')!;
+    this.config = config || {};
     this.tronWeb = new TronWeb({
-      fullHost: config.fullHost,
-      solidityNode: config.solidityHost || config.fullHost,
-      eventServer: config.eventHost || ""
+      fullHost: config?.fullHost || http,
+      solidityNode: config?.solidityHost || config?.fullHost || http,
+      eventServer: config?.eventHost || http,
     });
     this.masterSeed = masterSeed;
+    ChainManager.register(this);
   }
 
   /** Derive raw private key from masterSeed */
@@ -66,10 +72,11 @@ export class TronAdapter implements IChainAdapter {
   ): Promise<any> {
     const privKey = this.derivePrivKey(params);
     const pkHex = Buffer.from(privKey).toString("hex");
+    const defaultHex = typeof this.tronWeb.defaultAddress.hex === 'string' ? this.tronWeb.defaultAddress.hex : undefined;
     const rawTxn = await this.tronWeb.transactionBuilder.sendTrx(
       to,
       amount,
-      this.tronWeb.defaultAddress.hex
+      defaultHex
     );
     const signedTxn = await this.tronWeb.trx.sign(rawTxn, pkHex);
     return signedTxn;

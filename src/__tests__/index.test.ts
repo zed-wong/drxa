@@ -25,14 +25,11 @@ describe("Test all SUPPORTED_CHAINS", () => {
   SUPPORTED_CHAINS.forEach((chain) => {
     it(`should derive address for ${chain}`, async () => {
       if (
-        chain === 'tron' || 
-        chain === 'polkadot' ||
-        chain === 'sonic'
+        chain === ''
       ) {
         console.log(`Skipping unsupported chain: ${chain}`);
         return;
       }
-
 
       const address = await wallet.deriveAddress({
         scope: 'wallet',
@@ -40,6 +37,7 @@ describe("Test all SUPPORTED_CHAINS", () => {
         chain,
         index: '0'
       });
+      console.log(`Address for ${chain}:`, address);
       
       // Basic regex for address validation (can be customized per chain if needed)
       const regexMap: Record<string, RegExp> = {
@@ -47,7 +45,17 @@ describe("Test all SUPPORTED_CHAINS", () => {
         ethereum: /^0x[a-fA-F0-9]{40}$/,
         solana: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/,
         tron: /^T[a-zA-Z0-9]{33}$/,
-        default: /^[a-zA-Z0-9]{32,44}$/,
+        aptos: /^(0x)?[0-9a-f]{64}$/,
+        polakdot: /^1[a-zA-Z0-9]{47}$/,
+        cardano: /^(addr1|DdzFFzCqrhsg)[a-zA-Z0-9]{58}$/,
+
+        algorand: /^[A-Z2-7]{58}$/,
+        near: /^([a-zA-Z0-9_-]{1,64}\.[a-zA-Z0-9_-]{1,64})$/,
+        cosmos: /^[a-z0-9]{40}$/,
+        tezos: /^tz1[a-zA-Z0-9]{33}$/,
+        zilliqa: /^0x[a-fA-F0-9]{40}$/,
+        filecoin: /^(f1|f3|f4)[a-zA-Z0-9]{40}$/,
+        // default: /^[a-zA-Z0-9]{32,44}$/,
       };
       const regex = regexMap[chain] || regexMap.default;
       expect(address).toMatch(regex);

@@ -136,13 +136,6 @@ export class BitcoinAdapter implements IChainAdapter {
     }, 15000);
     return { unsubscribe: () => clearInterval(interval) };
   }
-
-  /**
-   * Register this adapter with the ChainManager.
-   */
-  registerAdapter(): void {
-    new BitcoinAdapter(this.masterSeed);
-  }
 }
 
 /**

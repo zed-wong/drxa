@@ -13,6 +13,9 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@aptos-labs/ts-sdk": "^1.38.0",
+    "@emurgo/cardano-serialization-lib-nodejs": "^14.1.1",
+    "@mysten/sui": "^1.28.0",
     "@noble/ed25519": "^2.2.3",
     "@noble/secp256k1": "^2.2.3",
     "@polkadot/api": "^15.9.2",

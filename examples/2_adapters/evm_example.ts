@@ -23,7 +23,7 @@ import { generateEd25519Keypair, privToSeed } from "../../src/utils/keypair.js";
     explorerApiKey: '',
   };
 
-  const evmAdapter = new EvmAdapter(config, seed);
+  const evmAdapter = new EvmAdapter(seed, config);
   const deriveParams = {
     scope: "wallet",
     userId: "0d0e72f3-7b46-483e-b12d-8696ecab55a0",

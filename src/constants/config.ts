@@ -98,6 +98,12 @@ export const DEFAULT_RPC_URLS: Record<string, RpcEndpoints> = {
     explorer: "https://blockstream.info",
     explorerApi: "https://blockstream.info/api",
   },
+  aptos: {
+    http: "https://fullnode.mainnet.aptoslabs.com/v1",
+    ws: "wss://fullnode.mainnet.aptoslabs.com/v1",
+    explorer: "https://explorer.aptoslabs.com",
+    explorerApi: "https://api.aptos.dev",
+  }
 };
 
 

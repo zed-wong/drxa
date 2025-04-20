@@ -71,11 +71,4 @@ export interface IChainAdapter {
     address: string,
     onIncoming: (txHash: string, amount: Big) => void
   ): Promise<{ unsubscribe: () => void }>;
-
-
-  /**
-   * Register the adapter with the wallet SDK.
-   * @param seed 32-byte Ed25519 master seed
-   */
-  registerAdapter?(): void;
 }

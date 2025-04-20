@@ -105,8 +105,4 @@ export class SolanaAdapter implements IChainAdapter {
 
     return { unsubscribe: () => clearInterval(intervalId) };
   }
-
-  registerAdapter() {
-    new SolanaAdapter(this.masterSeed);
-  }
 }

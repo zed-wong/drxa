@@ -15,7 +15,7 @@ const ERC20_ABI = [
 ];
 
 export interface EvmConfig {
-  chainName: string;
+  chainName?: string;
   chainId?: string | number;
   rpcUrl?: string;
   wsUrl?: string;
@@ -31,27 +31,27 @@ export class EvmAdapter implements IChainAdapter {
   protected wsProvider: providers.WebSocketProvider;
   private masterSeed: Uint8Array;
 
-  constructor(config: EvmConfig, masterSeed: Uint8Array) {
-    const rpcEndpoints = getRpcEndpoints(config.chainName);
+  constructor(masterSeed: Uint8Array, config?: EvmConfig) {
+    const rpcEndpoints = getRpcEndpoints(config?.chainName || 'ethereum');
     if (!rpcEndpoints) {
-      throw new Error(`RPC endpoints not found for chain ${config.chainName}`);
+      throw new Error(`RPC endpoints not found for chain ${config?.chainName}`);
     }
-    this.config = config;
-    this.chainName = config.chainName;
+    this.config = config || {};
+    this.chainName = config?.chainName || "ethereum";
 
     // Determine chain ID: prefer config.chainId, otherwise use default RPC config
-    this.chainId = config.chainId !== undefined
-      ? Number(config.chainId)
+    this.chainId = config?.chainId !== undefined
+      ? Number(config?.chainId)
       : Number(rpcEndpoints.chainId);
     this.masterSeed = masterSeed;
 
     // Pass explicit network object to avoid auto-detect network failure
     this.provider = new providers.JsonRpcProvider(
-      config.rpcUrl || rpcEndpoints.http,
+      config?.rpcUrl || rpcEndpoints.http,
       { name: this.chainName, chainId: this.chainId }
     );
     this.wsProvider = new providers.WebSocketProvider(
-      config.wsUrl || rpcEndpoints.ws || "",
+      config?.wsUrl || rpcEndpoints.ws || "",
       { name: this.chainName, chainId: this.chainId }
     );
 
@@ -184,12 +184,12 @@ export class EvmAdapter implements IChainAdapter {
     }));
   }
 
-  public registerAdapter(): void {
+  public registerAllEVMAdapters(): void {
     SUPPORTED_EVM_CHAINS.forEach((chain) => {
       const { http, ws, chainId } = getRpcEndpoints(chain);
       new EvmAdapter(
+        this.masterSeed,
         { chainName: chain, rpcUrl: http, wsUrl: ws, chainId },
-        this.masterSeed
       );
     });
   }

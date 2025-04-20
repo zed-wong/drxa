@@ -31,7 +31,7 @@ describe("Derivation Utilities", () => {
 
   describe("deriveForChain", () => {
     it("should derive Ethereum address correctly", () => {
-      const evmAdapter = new EvmAdapter({ chainName: "ethereum", rpcUrl: "" }, masterSeed);
+      const evmAdapter = new EvmAdapter(masterSeed, { chainName: "ethereum", rpcUrl: "" });
       const result = evmAdapter.derivePrivateKey({ ...commonParams, chain: "ethereum" as SupportedChain });
       expect(result.address).toMatch(/^0x[a-fA-F0-9]{40}$/); // Ethereum address format
       expect(result.priv).toBeInstanceOf(Uint8Array);
