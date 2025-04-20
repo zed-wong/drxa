@@ -1,3 +1,4 @@
+// examples/2_adapters/bitcoin_example.ts
 import Big from "big.js";
 import { exit } from "node:process";
 import { generateEd25519Keypair, privToSeed } from "../../src/utils/keypair.js";

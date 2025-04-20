@@ -102,6 +102,7 @@ export const DEFAULT_RPC_URLS: Record<string, RpcEndpoints> = {
 
 
 export const SUPPORTED_CHAINS = Object.keys(DEFAULT_RPC_URLS);
+export const SUPPORTED_EVM_CHAINS = Object.keys(DEFAULT_EVM_RPC_URLS);
 export type SupportedChain = typeof SUPPORTED_CHAINS[number];
 
 // Runtime overrides stored here

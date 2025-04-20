@@ -1,4 +1,4 @@
-// examples/2_evm/evmAdapter_example.ts
+// examples/2_adapters/evm_example.ts
 import Big from "big.js";
 import { exit } from "node:process";
 import { EvmAdapter, EvmConfig } from "../../src/adapters/evm/EvmAdapter.js";

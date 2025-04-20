@@ -136,6 +136,13 @@ export class BitcoinAdapter implements IChainAdapter {
     }, 15000);
     return { unsubscribe: () => clearInterval(interval) };
   }
+
+  /**
+   * Register this adapter with the ChainManager.
+   */
+  registerAdapter(): void {
+    new BitcoinAdapter(this.masterSeed);
+  }
 }
 
 /**
@@ -147,11 +154,4 @@ function wrapAsSigner(ecpair: ECPairInterface): Signer {
     sign: (hash: Buffer) => Buffer.from(ecpair.sign(hash)),
     signSchnorr: (hash: Buffer) => Buffer.from((ecpair as any).signSchnorr(hash)),
   };
-}
-
-/**
- * Register BitcoinAdapter on startup.
- */
-export function registerBitcoinAdapter(masterSeed: Uint8Array) {
-  new BitcoinAdapter(masterSeed);
 }

@@ -1,4 +1,4 @@
-// examples/2_solana/solanaAdapter_example.ts
+// examples/2_adapters/solana_example.ts
 import Big from "big.js";
 import { exit } from "node:process";
 import { SolanaAdapter } from "../../src/adapters/solana/SolanaAdapter.js";

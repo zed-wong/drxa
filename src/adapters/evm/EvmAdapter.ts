@@ -1,7 +1,7 @@
 import { IChainAdapter } from "../../interfaces/IChainAdapter.js";
 import { deriveEntropy, DeriveParams } from "../../utils/derivation.js";
 import { ChainManager } from "../../core/ChainManager.js";
-import { getRpcEndpoints, SUPPORTED_CHAINS } from "../../constants/config.js";
+import { getRpcEndpoints, SUPPORTED_EVM_CHAINS } from "../../constants/config.js";
 import Big from "big.js";
 import { keccak256 } from "js-sha3";
 import { BigNumber, providers, Wallet, Contract } from "ethers";
@@ -45,10 +45,6 @@ export class EvmAdapter implements IChainAdapter {
       : Number(rpcEndpoints.chainId);
     this.masterSeed = masterSeed;
 
-    console.log("provider url:", config.rpcUrl || rpcEndpoints.http);
-    console.log("ws provider url:", config.wsUrl || rpcEndpoints.ws);
-    console.log("chainId:", this.chainId);
-
     // Pass explicit network object to avoid auto-detect network failure
     this.provider = new providers.JsonRpcProvider(
       config.rpcUrl || rpcEndpoints.http,
@@ -62,7 +58,7 @@ export class EvmAdapter implements IChainAdapter {
     ChainManager.register(this);
   }
 
-  private derivePrivateKey(params: DeriveParams): { priv: Uint8Array; address: string } {
+  derivePrivateKey(params: DeriveParams): { priv: Uint8Array; address: string } {
     params.chain = "ethereum";
     const entropy = deriveEntropy(this.masterSeed, params);
     const priv = entropy.slice(0, 32);
@@ -187,17 +183,14 @@ export class EvmAdapter implements IChainAdapter {
       amount: Big(tx.value.toString()),
     }));
   }
-}
 
-/**
- * Register all configured EVM-compatible chains at runtime.
- */
-export function registerEvmAdapters(masterSeed: Uint8Array) {
-  SUPPORTED_CHAINS.forEach((chain) => {
-    const { http, ws, chainId } = getRpcEndpoints(chain);
-    new EvmAdapter(
-      { chainName: chain, rpcUrl: http, wsUrl: ws, chainId },
-      masterSeed
-    );
-  });
+  public registerAdapter(): void {
+    SUPPORTED_EVM_CHAINS.forEach((chain) => {
+      const { http, ws, chainId } = getRpcEndpoints(chain);
+      new EvmAdapter(
+        { chainName: chain, rpcUrl: http, wsUrl: ws, chainId },
+        this.masterSeed
+      );
+    });
+  }
 }

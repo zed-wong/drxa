@@ -24,7 +24,6 @@ describe("WalletSDK", () => {
 describe("Test all SUPPORTED_CHAINS", () => {
   SUPPORTED_CHAINS.forEach((chain) => {
     it(`should derive address for ${chain}`, async () => {
-      
       if (
         chain === 'tron' || 
         chain === 'polkadot' ||
@@ -41,7 +40,6 @@ describe("Test all SUPPORTED_CHAINS", () => {
         chain,
         index: '0'
       });
-      console.log(`${chain} address:`, address);
       
       // Basic regex for address validation (can be customized per chain if needed)
       const regexMap: Record<string, RegExp> = {

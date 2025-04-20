@@ -10,9 +10,9 @@ import {
   TransactionSigner,
 } from "gill";
 import { getTransferSolInstruction } from "gill/programs";
-import Big from "big.js";
 import { ChainManager } from "../../core/ChainManager.js";
 import { getRpcEndpoints } from "../../constants/config.js";
+import Big from "big.js";
 import nacl from "tweetnacl";
 
 export class SolanaAdapter implements IChainAdapter {
@@ -105,9 +105,8 @@ export class SolanaAdapter implements IChainAdapter {
 
     return { unsubscribe: () => clearInterval(intervalId) };
   }
-}
 
-/** Auto-register helper */
-export function registerSolanaAdapter(masterSeed: Uint8Array) {
-  new SolanaAdapter(masterSeed);
+  registerAdapter() {
+    new SolanaAdapter(this.masterSeed);
+  }
 }
