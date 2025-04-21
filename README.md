@@ -1,6 +1,6 @@
 # drxa
 
-`drxa` is a deterministic multi-chain address SDK for Node.js. It allows you to derive 1 billion addresses with 1 single ed25519 private key or 32 bytes seed. As a part of the goal for democratic market making.
+`drxa` (/ˈdræksə/) is a deterministic multi-chain address SDK for Node.js. It allows you to derive 1 billion addresses with 1 single ed25519 private key or 32 bytes seed. As a part of the goal for democratic market making.
 
 ## Features
 
