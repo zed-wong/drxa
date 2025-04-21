@@ -46,7 +46,7 @@ The `examples/` folder contains sample scripts demonstrating how to use the SDK.
 ### Importing the SDK
 
 ```ts
-import { WalletSDK } from "daddr";
+import { WalletSDK } from "drxa";
 ```
 
 ### Initializing the SDK
