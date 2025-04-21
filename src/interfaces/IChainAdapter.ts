@@ -64,6 +64,14 @@ export interface IChainAdapter {
   getHistory?(params: DeriveParams): Promise<Array<{ txHash: string; amount: Big }>>;
 
   /**
+   * Fetch the latest transaction for a derived address.
+   * @param params derivation path or identifier
+   */
+  fetchLatestTx?(
+    params: DeriveParams,
+  ): Promise<{ tx: {}}>;
+
+  /**
    * Subscribe to incoming transfers for the given address.
    * Returns an unsubscribe handle.
    */
