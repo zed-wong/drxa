@@ -137,17 +137,17 @@ bun run test
 
 The SDK currently supports the following chains:
 
-- Ethereum
-- Binance Smart Chain (BSC)
-- Polygon
-- Avalanche
-- Fantom
-- Optimism
-- Arbitrum
-- Solana
-- Bitcoin
-- Polkadot
-- Tron
+
+|Chain|Derive address|Balance|Send|History|
+|-----------|--|--|--|--|
+|Bitcoin    |✅|✅|✅|❌|
+|Ethereum   |✅|✅|✅|❌|
+|Solana     |✅|✅|✅|❌|
+|Cardano    |✅|✅|❌|❌|
+|Aptos      |✅|✅|❌|❌|
+|Polkadot   |✅|✅|❌|❌|
+|Sui        |✅|✅|❌|❌|
+|Tron       |✅|✅|❌|❌|
 
 ## Extending the SDK
 
