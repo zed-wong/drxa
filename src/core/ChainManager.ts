@@ -1,5 +1,5 @@
 // src/core/ChainManager.ts
-import { IChainAdapter } from "../interfaces/IChainAdapter.js";
+import { IChainAdapter } from "../core/adapters/BaseAdapter.js";
 
 /**
  * ChainManager maintains registered adapters for each chain.

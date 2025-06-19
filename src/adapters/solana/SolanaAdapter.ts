@@ -1,5 +1,5 @@
 // src/adapters/solana/SolanaAdapter.ts
-import { IChainAdapter } from "../../interfaces/IChainAdapter.js";
+import { IChainAdapter } from "../../core/adapters/BaseAdapter.js";
 import { deriveForChain, DeriveParams } from "../../utils/derivation.js";
 import {
   createSolanaClient,

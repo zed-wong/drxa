@@ -1,5 +1,5 @@
 // src/adapters/tron/TronAdapter.ts
-import { IChainAdapter } from "../../interfaces/IChainAdapter.js";
+import { IChainAdapter } from "../../core/adapters/BaseAdapter.js";
 import { deriveEntropy, DeriveParams } from "../../utils/derivation.js";
 import { keccak256 } from "js-sha3";
 import { getPublicKey as getSecp256k1Pub } from "@noble/secp256k1";

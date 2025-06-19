@@ -1,6 +1,6 @@
 import { ChainManager } from "../../core/ChainManager.js";
 import { getRpcEndpoints } from "../../constants/config.js";
-import { IChainAdapter } from "../../interfaces/IChainAdapter.js";
+import { IChainAdapter } from "../../core/adapters/BaseAdapter.js";
 import { deriveEntropy, DeriveParams } from "../../utils/derivation.js";
 import Big from "big.js";
 import {
