@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { generateEd25519Keypair } from "../../utils/keypair.js";
+import { createPublicKey, createPrivateKey } from 'crypto';
+import { generateEd25519Keypair, generateEd25519PemPair } from "../../utils/keypair.js";
 
 // Test suite for generateEd25519Keypair
 
@@ -26,4 +27,29 @@ describe("generateEd25519Keypair", () => {
     expect(keypair1.privateKey).not.toBe(keypair2.privateKey);
     expect(keypair1.publicKey).not.toBe(keypair2.publicKey);
   });
+});
+
+
+test('generateEd25519PemPair produces valid PEM keys', () => {
+  const { publicKey, privateKey } = generateEd25519PemPair();
+
+  // Public key must use SPKI PEM: check RFC7468 header/footer
+  expect(publicKey).toMatch(/^-----BEGIN PUBLIC KEY-----\n/);   // PEM header :contentReference[oaicite:3]{index=3}
+  expect(publicKey).toMatch(/\n-----END PUBLIC KEY-----\n$/);   // PEM footer :contentReference[oaicite:4]{index=4}
+
+  // Private key must use PKCS#8 PEM: check header/footer
+  expect(privateKey).toMatch(/^-----BEGIN PRIVATE KEY-----\n/); // PEM header :contentReference[oaicite:5]{index=5}
+  expect(privateKey).toMatch(/\n-----END PRIVATE KEY-----\n$/); // PEM footer :contentReference[oaicite:6]{index=6}
+});
+
+test('generated PEM keys parse and identify as ed25519', () => {
+  const { publicKey, privateKey } = generateEd25519PemPair();
+
+  // Parse SPKI public key and verify type
+  const pubObj = createPublicKey(publicKey);
+  expect(pubObj.asymmetricKeyType).toBe('ed25519');             // crypto.createPublicKey :contentReference[oaicite:7]{index=7}
+
+  // Parse PKCS#8 private key and verify type
+  const privObj = createPrivateKey(privateKey);
+  expect(privObj.asymmetricKeyType).toBe('ed25519');            // crypto.createPrivateKey :contentReference[oaicite:8]{index=8}
 });
