@@ -2,7 +2,7 @@ import Big from "big.js";
 
 // Chain types
 export type SupportedChain = 
-  | 'ethereum' | 'bsc' | 'polygon' | 'avalanche' | 'arbitrum' | 'optimism' | 'fantom' | 'cronos' | 'sonic' | 'base'
+  | 'ethereum' | 'bsc' | 'polygon' | 'avalanche' | 'arbitrum' | 'optimism' | 'cronos' | 'sonic' | 'base'
   | 'bitcoin' 
   | 'solana' 
   | 'polkadot' 
@@ -25,16 +25,172 @@ export interface DeriveParams {
 }
 
 // Transaction types
-export interface TransactionRequest {
+// Base transaction configuration
+export interface BaseTransactionConfig {
+  // Common fields
+  memo?: string;
+  data?: string;
+  priority?: 'low' | 'normal' | 'high' | 'urgent';
+  
+  // Fee configuration
+  feeRate?: Big;
+  customFee?: Big;
+  
+  // Advanced options
+  confirmations?: number;
+  timeout?: number;
+  rbf?: boolean; // Replace-by-fee for Bitcoin
+}
+
+// EVM-specific transaction configuration
+export interface EvmTransactionConfig extends BaseTransactionConfig {
+  // Gas configuration
+  gasLimit?: Big;
+  gasPrice?: Big;
+  
+  // EIP-1559 fee configuration
+  maxFeePerGas?: Big;
+  maxPriorityFeePerGas?: Big;
+  
+  // Transaction options
+  nonce?: number;
+  chainId?: number;
+  type?: 0 | 1 | 2; // Legacy, EIP-2930, EIP-1559
+  
+  // Contract interaction
+  data?: string;
+  value?: Big;
+}
+
+// Bitcoin-specific transaction configuration
+export interface BitcoinTransactionConfig extends BaseTransactionConfig {
+  // Fee configuration
+  feeRate?: Big; // satoshis per byte
+  satPerVByte?: Big; // satoshis per virtual byte
+  
+  // UTXO selection
+  utxoSelection?: 'auto' | 'manual' | 'largest-first' | 'smallest-first';
+  specificUtxos?: string[]; // specific UTXO transaction IDs
+  
+  // Script types
+  scriptType?: 'p2pkh' | 'p2sh' | 'p2wpkh' | 'p2wsh' | 'p2tr';
+  
+  // Advanced options
+  rbf?: boolean; // Replace-by-fee
+  lockTime?: number;
+  sequence?: number;
+}
+
+// Solana-specific transaction configuration
+export interface SolanaTransactionConfig extends BaseTransactionConfig {
+  // Fee configuration
+  computeUnits?: number;
+  computeUnitPrice?: Big; // microlamports per compute unit
+  
+  // Transaction options
+  recentBlockhash?: string;
+  feePayer?: string;
+  
+  // Advanced options
+  skipPreflight?: boolean;
+  preflightCommitment?: 'processed' | 'confirmed' | 'finalized';
+  maxRetries?: number;
+}
+
+// TON-specific transaction configuration
+export interface TonTransactionConfig extends BaseTransactionConfig {
+  // Fee configuration
+  gasLimit?: Big;
+  gasPrice?: Big;
+  
+  // Message options
+  bounce?: boolean;
+  mode?: number;
+  
+  // Advanced options
+  validUntil?: number;
+  seqno?: number;
+}
+
+// EOS-specific transaction configuration
+export interface EosTransactionConfig extends BaseTransactionConfig {
+  // Transaction options
+  expiration?: number;
+  refBlockNum?: number;
+  refBlockPrefix?: number;
+  
+  // Resource configuration
+  maxCpuUsageMs?: number;
+  maxNetUsageWords?: number;
+  
+  // Advanced options
+  delaySec?: number;
+  contextFreeActions?: any[];
+}
+
+// NEAR-specific transaction configuration
+export interface NearTransactionConfig extends BaseTransactionConfig {
+  // Gas configuration
+  gas?: Big;
+  attachedDeposit?: Big;
+  
+  // Transaction options
+  blockHash?: string;
+  nonce?: number;
+  
+  // Function call options (for contract calls)
+  methodName?: string;
+  args?: any;
+}
+
+// Aptos-specific transaction configuration
+export interface AptosTransactionConfig extends BaseTransactionConfig {
+  // Gas configuration
+  gasUnitPrice?: Big;
+  maxGasAmount?: Big;
+  
+  // Transaction options
+  sequenceNumber?: number;
+  expirationTimestampSecs?: number;
+  
+  // Multi-sig options
+  secondarySigners?: string[];
+}
+
+// Cardano-specific transaction configuration
+export interface CardanoTransactionConfig extends BaseTransactionConfig {
+  // Fee configuration
+  fee?: Big;
+  
+  // UTXO configuration
+  inputs?: Array<{
+    txHash: string;
+    outputIndex: number;
+  }>;
+  
+  // Advanced options
+  ttl?: number; // Time to live
+  auxiliaryData?: any;
+  validityIntervalStart?: number;
+}
+
+// Union type for all transaction configurations
+export type TransactionConfig = 
+  | EvmTransactionConfig
+  | BitcoinTransactionConfig  
+  | SolanaTransactionConfig
+  | TonTransactionConfig
+  | EosTransactionConfig
+  | NearTransactionConfig
+  | AptosTransactionConfig
+  | CardanoTransactionConfig
+  | BaseTransactionConfig;
+
+// Legacy interface for backward compatibility
+export interface TransactionRequest extends EvmTransactionConfig {
   from?: string;
   to: string;
   amount: Big;
-  data?: string;
-  gasLimit?: Big;
-  gasPrice?: Big;
-  maxFeePerGas?: Big;
-  maxPriorityFeePerGas?: Big;
-  nonce?: number;
 }
 
 export interface TransactionResponse {
@@ -180,7 +336,7 @@ export interface MetricsCollector {
 // Validation helpers
 export function isValidChain(chain: string): chain is SupportedChain {
   const chains: SupportedChain[] = [
-    'ethereum', 'bsc', 'polygon', 'avalanche', 'arbitrum', 'optimism', 'fantom', 'cronos', 'sonic', 'base',
+    'ethereum', 'bsc', 'polygon', 'avalanche', 'arbitrum', 'optimism', 'cronos', 'sonic', 'base',
     'bitcoin', 'solana', 'polkadot', 'cardano', 'aptos', 'sui', 'tron', 'ton', 'near', 'eos'
   ];
   return chains.includes(chain as SupportedChain);
@@ -197,7 +353,6 @@ export function isValidAddress(address: string, chain: SupportedChain): boolean 
     case 'avalanche':
     case 'arbitrum':
     case 'optimism':
-    case 'fantom':
     case 'cronos':
     case 'sonic':
     case 'base':

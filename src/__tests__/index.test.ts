@@ -3,6 +3,7 @@ import { WalletSDK } from "../index.js";
 import { HDWallet } from "../core/HDWallet.js";
 import { describe, it, expect, beforeAll } from "vitest";
 import { SUPPORTED_CHAINS } from "../constants/config.js";
+import { SupportedChain } from "../types/index.js";
 
 let seed: string;
 let sdk: WalletSDK;
@@ -34,7 +35,7 @@ describe("Test all SUPPORTED_CHAINS", () => {
       const address = await wallet.deriveAddress({
         scope: 'wallet',
         userId: '8a3c6134-a1de-467c-b2d3-075d138370a1',
-        chain,
+        chain: chain as SupportedChain,
         index: '0'
       });
       console.log(`Address for ${chain}:`, address);
@@ -46,16 +47,22 @@ describe("Test all SUPPORTED_CHAINS", () => {
         solana: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/,
         tron: /^T[a-zA-Z0-9]{33}$/,
         aptos: /^(0x)?[0-9a-f]{64}$/,
-        polakdot: /^1[a-zA-Z0-9]{47}$/,
+        polkadot: /^[1-9A-HJ-NP-Za-km-z]{47,48}$/,
         cardano: /^(addr1|DdzFFzCqrhsg)[a-zA-Z0-9]{58}$/,
-
         algorand: /^[A-Z2-7]{58}$/,
         near: /^([a-zA-Z0-9_-]{1,64}\.[a-zA-Z0-9_-]{1,64})$/,
         cosmos: /^[a-z0-9]{40}$/,
         tezos: /^tz1[a-zA-Z0-9]{33}$/,
         zilliqa: /^0x[a-fA-F0-9]{40}$/,
         filecoin: /^(f1|f3|f4)[a-zA-Z0-9]{40}$/,
-        // default: /^[a-zA-Z0-9]{32,44}$/,
+        bsc: /^0x[a-fA-F0-9]{40}$/,
+        cronos: /^0x[a-fA-F0-9]{40}$/,
+        polygon: /^0x[a-fA-F0-9]{40}$/,
+        avalanche: /^0x[a-fA-F0-9]{40}$/,
+        optimism: /^0x[a-fA-F0-9]{40}$/,
+        arbitrum: /^0x[a-fA-F0-9]{40}$/,
+        sonic: /^0x[a-fA-F0-9]{40}$/,
+        default: /^[a-zA-Z0-9]{32,66}$/,
       };
       const regex = regexMap[chain] || regexMap.default;
       expect(address).toMatch(regex);

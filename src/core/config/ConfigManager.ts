@@ -257,6 +257,178 @@ export class ConfigManager {
         type: 'eip1559'
       }
     });
+
+    // Cronos
+    this.setChainConfig('cronos', {
+      chainId: 25,
+      name: 'Cronos',
+      symbol: 'CRO',
+      decimals: 18,
+      category: 'evm',
+      endpoints: {
+        http: {
+          url: 'https://evm.cronos.org',
+          timeout: 30000,
+          retryCount: 3,
+          retryDelay: 1000
+        }
+      },
+      explorer: {
+        url: 'https://cronoscan.com',
+        apiUrl: 'https://api.cronoscan.com/api'
+      },
+      feeConfig: {
+        type: 'dynamic'
+      }
+    });
+
+    // Avalanche
+    this.setChainConfig('avalanche', {
+      chainId: 43114,
+      name: 'Avalanche',
+      symbol: 'AVAX',
+      decimals: 18,
+      category: 'evm',
+      endpoints: {
+        http: {
+          url: 'https://api.avax.network/ext/bc/C/rpc',
+          timeout: 30000,
+          retryCount: 3,
+          retryDelay: 1000
+        }
+      },
+      explorer: {
+        url: 'https://snowtrace.io',
+        apiUrl: 'https://api.snowtrace.io/api'
+      },
+      feeConfig: {
+        type: 'eip1559'
+      }
+    });
+
+    // Optimism
+    this.setChainConfig('optimism', {
+      chainId: 10,
+      name: 'Optimism',
+      symbol: 'ETH',
+      decimals: 18,
+      category: 'evm',
+      endpoints: {
+        http: {
+          url: 'https://mainnet.optimism.io',
+          timeout: 30000,
+          retryCount: 3,
+          retryDelay: 1000
+        }
+      },
+      explorer: {
+        url: 'https://optimistic.etherscan.io',
+        apiUrl: 'https://api-optimistic.etherscan.io/api'
+      },
+      feeConfig: {
+        type: 'eip1559'
+      }
+    });
+
+    // Arbitrum
+    this.setChainConfig('arbitrum', {
+      chainId: 42161,
+      name: 'Arbitrum One',
+      symbol: 'ETH',
+      decimals: 18,
+      category: 'evm',
+      endpoints: {
+        http: {
+          url: 'https://arb1.arbitrum.io/rpc',
+          timeout: 30000,
+          retryCount: 3,
+          retryDelay: 1000
+        }
+      },
+      explorer: {
+        url: 'https://arbiscan.io',
+        apiUrl: 'https://api.arbiscan.io/api'
+      },
+      feeConfig: {
+        type: 'eip1559'
+      }
+    });
+
+    // Sonic
+    this.setChainConfig('sonic', {
+      chainId: 146,
+      name: 'Sonic',
+      symbol: 'S',
+      decimals: 18,
+      category: 'evm',
+      endpoints: {
+        http: {
+          url: 'https://rpc.soniclabs.com',
+          timeout: 30000,
+          retryCount: 3,
+          retryDelay: 1000
+        }
+      },
+      explorer: {
+        url: 'https://sonicscan.org',
+        apiUrl: 'https://api.sonicscan.org/api'
+      },
+      feeConfig: {
+        type: 'eip1559'
+      }
+    });
+
+    // Tron
+    this.setChainConfig('tron', {
+      name: 'Tron',
+      symbol: 'TRX',
+      decimals: 6,
+      category: 'other',
+      endpoints: {
+        http: {
+          url: 'https://api.trongrid.io',
+          timeout: 30000,
+          retryCount: 3,
+          retryDelay: 1000
+        }
+      },
+      explorer: {
+        url: 'https://tronscan.org',
+        apiUrl: 'https://api.tronscan.org/api'
+      },
+      feeConfig: {
+        type: 'dynamic'
+      }
+    });
+
+    // Polkadot
+    this.setChainConfig('polkadot', {
+      name: 'Polkadot',
+      symbol: 'DOT',
+      decimals: 10,
+      category: 'other',
+      endpoints: {
+        http: {
+          url: 'https://rpc.polkadot.io',
+          timeout: 30000,
+          retryCount: 3,
+          retryDelay: 1000
+        },
+        ws: {
+          url: 'wss://rpc.polkadot.io',
+          timeout: 30000,
+          retryCount: 3,
+          retryDelay: 1000
+        }
+      },
+      explorer: {
+        url: 'https://polkadot.subscan.io',
+        apiUrl: 'https://polkadot.api.subscan.io'
+      },
+      feeConfig: {
+        type: 'dynamic'
+      }
+    });
   }
 
   private validateChainConfig(config: ChainConfig): void {

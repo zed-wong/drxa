@@ -48,13 +48,6 @@ export const DEFAULT_EVM_RPC_URLS: Record<string, RpcEndpoints> = {
     explorerApi: "https://api.snowtrace.io/api",
     chainId: 43114,
   },
-  fantom: {
-    http: "https://rpc.ftm.tools",
-    ws: "wss://wsapi.fantom.network/",
-    explorer: "https://ftmscan.com",
-    explorerApi: "https://api.ftmscan.com/api",
-    chainId: 250,
-  },
   optimism: {
     http: "https://mainnet.optimism.io",
     ws: "wss://mainnet.optimism.io/ws",

@@ -3,6 +3,7 @@ import { EventEmitter } from "events";
 import { 
   DeriveParams, 
   TransactionRequest, 
+  TransactionConfig,
   TransactionResponse, 
   Balance, 
   FeeEstimate, 
@@ -33,11 +34,11 @@ export interface IChainAdapter {
   // Core methods
   deriveAddress(params: DeriveParams): Promise<string>;
   balance(params: DeriveParams): Promise<Big>;
-  send(params: DeriveParams, to: string, amount: Big, config?: TransactionRequest): Promise<TransactionResponse>;
+  send(params: DeriveParams, to: string, amount: Big, config?: TransactionConfig): Promise<TransactionResponse>;
   
   // Optional methods
-  estimateFee?(params: DeriveParams, to: string, amount: Big): Promise<FeeEstimate>;
-  sign?(params: DeriveParams, tx: TransactionRequest): Promise<string>;
+  estimateFee?(params: DeriveParams, to: string, amount: Big, config?: TransactionConfig): Promise<FeeEstimate>;
+  sign?(params: DeriveParams, tx: TransactionConfig): Promise<string>;
   getHistory?(params: DeriveParams, limit?: number): Promise<TransactionHistory[]>;
   fetchLatestTx?(params: DeriveParams): Promise<TransactionResponse | null>;
   subscribe?(address: string, callback: SubscriptionCallback): Promise<Unsubscribe>;
@@ -85,7 +86,7 @@ export abstract class BaseAdapter extends EventEmitter implements IChainAdapter 
     from: string,
     to: string,
     amount: Big,
-    config?: TransactionRequest
+    config?: TransactionConfig
   ): Promise<TransactionResponse>;
 
   // Core public methods with common logic
@@ -133,7 +134,7 @@ export abstract class BaseAdapter extends EventEmitter implements IChainAdapter 
     params: DeriveParams,
     to: string,
     amount: Big,
-    config?: TransactionRequest
+    config?: TransactionConfig
   ): Promise<TransactionResponse> {
     try {
       validateDeriveParams(params);

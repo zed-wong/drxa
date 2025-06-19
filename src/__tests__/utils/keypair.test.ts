@@ -30,7 +30,7 @@ describe("generateEd25519Keypair", () => {
 });
 
 
-test('generateEd25519PemPair produces valid PEM keys', () => {
+it('generateEd25519PemPair produces valid PEM keys', () => {
   const { publicKey, privateKey } = generateEd25519PemPair();
 
   // Public key must use SPKI PEM: check RFC7468 header/footer
@@ -42,7 +42,7 @@ test('generateEd25519PemPair produces valid PEM keys', () => {
   expect(privateKey).toMatch(/\n-----END PRIVATE KEY-----\n$/); // PEM footer :contentReference[oaicite:6]{index=6}
 });
 
-test('generated PEM keys parse and identify as ed25519', () => {
+it('generated PEM keys parse and identify as ed25519', () => {
   const { publicKey, privateKey } = generateEd25519PemPair();
 
   // Parse SPKI public key and verify type
