@@ -201,8 +201,9 @@ export function registerBuiltInAdapters(registry: AdapterRegistry): void {
 }
 
 // Export types for external adapter development
-export { AdapterRegistry, AdapterConstructor } from "../core/AdapterRegistry.js";
-export { BaseAdapter, IChainAdapter } from "../core/adapters/BaseAdapter.js";
+export { AdapterRegistry } from "../core/AdapterRegistry.js";
+export { BaseAdapter } from "../core/adapters/BaseAdapter.js";
+export type { AdapterConstructor } from "../core/AdapterRegistry.js";
 
 // Re-export the new adapters
 export { BitcoinAdapterV2 } from "./bitcoin/BitcoinAdapterV2.js";

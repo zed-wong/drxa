@@ -5,7 +5,7 @@ import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountInfo } from '@polkadot/types/interfaces';
 import { ChainManager } from "../../core/ChainManager.js";
 import { getRpcEndpoints } from "../../constants/config.js";
-import { IChainAdapter } from "../../core/adapters/BaseAdapter.js";
+import { IChainAdapter } from "../../types/index.js";
 import { deriveEntropy, DeriveParams } from "../../utils/derivation.js";
 
 export interface PolkadotConfig {

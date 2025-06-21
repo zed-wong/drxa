@@ -46,7 +46,7 @@ async function enhancedExample() {
   });
   
   // Subscribe to events
-  const unsubscribe = sdk.onEvent((event) => {
+  const subscription = sdk.onEvent((event) => {
     console.log(`📡 Event: ${event.type} on ${event.chain}`);
   });
   
@@ -76,7 +76,7 @@ async function enhancedExample() {
   }
   
   // Cleanup
-  unsubscribe();
+  subscription.unsubscribe();
   return sdk;
 }
 

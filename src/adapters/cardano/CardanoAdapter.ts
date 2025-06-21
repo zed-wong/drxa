@@ -1,6 +1,6 @@
 // src/adapters/cardano/CardanoAdapter.ts
 
-import { IChainAdapter } from "../../core/adapters/BaseAdapter.js";
+import { IChainAdapter } from "../../types/index.js";
 import { deriveEntropy, DeriveParams } from "../../utils/derivation.js";
 import { ChainManager } from "../../core/ChainManager.js";
 import Big from "big.js";

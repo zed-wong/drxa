@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import Big from 'big.js';
-import { IChainAdapter } from '../../core/adapters/BaseAdapter.js';
-import { DeriveParams, SupportedChain, TransactionResponse } from '../../types/index.js';
+import { IChainAdapter, DeriveParams, SupportedChain, TransactionResponse } from '../../types/index.js';
 import { AdapterRegistry } from '../../core/AdapterRegistry.js';
 import { registerMockAdapters } from './TestAdapters.js';
 

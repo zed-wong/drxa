@@ -1,5 +1,4 @@
-import { IChainAdapter } from "./adapters/BaseAdapter.js";
-import { SupportedChain, Logger, AdapterConfig } from "../types/index.js";
+import { IChainAdapter, SupportedChain, Logger, AdapterConfig } from "../types/index.js";
 import { ErrorFactory } from "./errors/index.js";
 import { EventBus } from "./events/EventBus.js";
 

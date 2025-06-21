@@ -217,5 +217,5 @@ export * from "./core/errors/index.js";
 export { EventBus } from "./core/events/EventBus.js";
 export { AdapterRegistry } from "./core/AdapterRegistry.js";
 export { ConfigManager } from "./core/config/ConfigManager.js";
-export { BaseAdapter, IChainAdapter } from "./core/adapters/BaseAdapter.js";
+export { BaseAdapter } from "./core/adapters/BaseAdapter.js";
 export { ConnectionPool } from "./core/pool/ConnectionPool.js";
