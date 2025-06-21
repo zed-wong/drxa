@@ -60,22 +60,19 @@ bun add drxa
 ### Basic Usage
 
 ```ts
-import { AdapterRegistry } from 'drxa';
-import { registerBuiltInAdapters } from 'drxa/adapters';
+import { WalletSDK } from 'drxa';
 
-// Initialize the SDK
-const masterSeed = new Uint8Array(32); // Your 32-byte master seed
-const registry = AdapterRegistry.getInstance();
-registry.initialize(masterSeed);
+// Initialize the SDK with your 32-byte master seed
+const sdk = new WalletSDK({
+  seed: 'your-32-byte-hex-seed-here', // or Uint8Array
+  environment: 'production' // optional: 'development', 'staging', 'production'
+});
 
-// Register built-in adapters
-registerBuiltInAdapters(registry);
-
-// Load an adapter for a specific chain
-const bitcoinAdapter = await registry.loadAdapter('bitcoin');
+// Get the wallet instance
+const wallet = sdk.wallet;
 
 // Derive an address
-const address = await bitcoinAdapter.deriveAddress({
+const address = await wallet.deriveAddress({
   scope: "wallet",
   userId: "123e4567-e89b-12d3-a456-426614174000",
   chain: "bitcoin",
@@ -93,7 +90,7 @@ console.log("Bitcoin Address:", address);
 import Big from 'big.js';
 
 // Get balance
-const balance = await bitcoinAdapter.balance({
+const balance = await wallet.balance({
   scope: "wallet",
   userId: "123e4567-e89b-12d3-a456-426614174000", 
   chain: "bitcoin",
@@ -104,7 +101,7 @@ console.log(`Balance: ${balance.toString()} satoshis`);
 
 // Send transaction
 if (balance.gt(new Big('100000'))) { // If balance > 0.001 BTC
-  const result = await bitcoinAdapter.send(
+  const result = await wallet.send(
     {
       scope: "wallet",
       userId: "123e4567-e89b-12d3-a456-426614174000",
@@ -123,7 +120,8 @@ if (balance.gt(new Big('100000'))) { // If balance > 0.001 BTC
 
 ```ts
 // Subscribe to incoming transactions
-const unsubscribe = await bitcoinAdapter.subscribe(
+const unsubscribe = await wallet.subscribe(
+  "bitcoin",
   address,
   (transaction) => {
     console.log(`Incoming transaction: ${transaction.txHash}`);
@@ -140,14 +138,14 @@ const unsubscribe = await bitcoinAdapter.subscribe(
 
 ```ts
 // Get transaction history (for supported adapters)
-if (bitcoinAdapter.getHistory) {
-  const history = await bitcoinAdapter.getHistory({
-    scope: "wallet",
-    userId: "123e4567-e89b-12d3-a456-426614174000",
-    chain: "bitcoin",
-    index: "0"
-  }, 50); // Last 50 transactions
-  
+const history = await wallet.getHistory({
+  scope: "wallet",
+  userId: "123e4567-e89b-12d3-a456-426614174000",
+  chain: "bitcoin",
+  index: "0"
+}, 50); // Last 50 transactions
+
+if (history) {
   history.forEach(tx => {
     console.log(`${tx.direction}: ${tx.amount.toString()} at ${new Date(tx.timestamp)}`);
   });
@@ -158,14 +156,14 @@ if (bitcoinAdapter.getHistory) {
 
 ```ts
 // Estimate fees (for supported adapters) 
-if (bitcoinAdapter.estimateFee) {
-  const feeEstimate = await bitcoinAdapter.estimateFee({
-    scope: "wallet",
-    userId: "123e4567-e89b-12d3-a456-426614174000",
-    chain: "bitcoin",
-    index: "0"
-  }, "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", new Big('50000'));
-  
+const feeEstimate = await wallet.estimateFee({
+  scope: "wallet",
+  userId: "123e4567-e89b-12d3-a456-426614174000",
+  chain: "bitcoin",
+  index: "0"
+}, "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", new Big('50000'));
+
+if (feeEstimate) {
   console.log(`Estimated fee: ${feeEstimate.totalFee.toString()} satoshis`);
 }
 ```
@@ -174,9 +172,6 @@ if (bitcoinAdapter.estimateFee) {
 
 ```ts
 // Work with multiple chains simultaneously
-const ethereumAdapter = await registry.loadAdapter('ethereum');
-const solanaAdapter = await registry.loadAdapter('solana');
-
 const params = {
   scope: "trading",
   userId: "987fcdeb-51a2-43d1-b432-fedcba098765",
@@ -184,15 +179,24 @@ const params = {
 };
 
 // Derive addresses for multiple chains
-const btcAddress = await bitcoinAdapter.deriveAddress({...params, chain: "bitcoin"});
-const ethAddress = await ethereumAdapter.deriveAddress({...params, chain: "ethereum"});
-const solAddress = await solanaAdapter.deriveAddress({...params, chain: "solana"});
+const btcAddress = await wallet.deriveAddress({...params, chain: "bitcoin"});
+const ethAddress = await wallet.deriveAddress({...params, chain: "ethereum"});
+const solAddress = await wallet.deriveAddress({...params, chain: "solana"});
 
 console.log("Multi-chain addresses:", {
   bitcoin: btcAddress,
   ethereum: ethAddress, 
   solana: solAddress
 });
+
+// Get balances across chains
+const balances = await Promise.all([
+  wallet.balance({...params, chain: "bitcoin"}),
+  wallet.balance({...params, chain: "ethereum"}),
+  wallet.balance({...params, chain: "solana"})
+]);
+
+console.log("Multi-chain balances:", balances);
 ```
 
 ## Running Tests
@@ -209,25 +213,53 @@ The SDK is built with a modular, enterprise-grade architecture:
 
 ### Core Components
 
-- **`src/core/`**: Core infrastructure
-  - **`AdapterRegistry.ts`**: Plugin system for managing chain adapters
-  - **`adapters/BaseAdapter.ts`**: Abstract base class eliminating code duplication
-  - **`errors/`**: Custom error system with retry logic and circuit breakers
-  - **`events/EventBus.ts`**: Event-driven architecture for real-time monitoring
-  - **`pool/ConnectionPool.ts`**: Connection pooling for resource management
-  - **`config/ConfigManager.ts`**: Centralized configuration management
+- **WalletSDK** (`src/index.ts`): Main entry point with dependency injection
+  - Environment-based configuration
+  - Plugin system for adapters
+  - Event bus integration
+  - Graceful shutdown
 
-- **`src/adapters/`**: Chain-specific implementations
-  - **`bitcoin/BitcoinAdapterV2.ts`**: Bitcoin with UTXO management
-  - **`evm/EvmAdapterV2.ts`**: Ethereum and all EVM-compatible chains
-  - **`aptos/AptosAdapterV2.ts`**: Aptos with fixed balance methods
-  - **`ton/TonAdapter.ts`**: TON blockchain support
-  - **`eos/EosAdapter.ts`**: EOS blockchain support  
-  - **`near/NearAdapter.ts`**: NEAR Protocol support
+- **HDWallet** (`src/core/HDWallet.ts`): High-level wallet operations
+  - Multi-chain address derivation
+  - Transaction management
+  - Balance queries across chains
 
-- **`src/types/`**: Comprehensive TypeScript definitions
-- **`src/utils/`**: Cryptographic utilities and key derivation
-- **`src/__tests__/`**: 85+ comprehensive tests with mock adapters
+- **AdapterRegistry** (`src/core/AdapterRegistry.ts`): Plugin-based adapter system
+  - Lazy loading of adapters
+  - Dynamic adapter registration
+  - Plugin system for external adapters
+  - Automatic cleanup and resource management
+
+- **BaseAdapter** (`src/core/adapters/BaseAdapter.ts`): Abstract base class
+  - Eliminates code duplication
+  - Common error handling and retry logic
+  - Built-in validation and logging
+  - Subscription management with cleanup
+  - Event emission for monitoring
+
+- **EventBus** (`src/core/events/EventBus.ts`): Event-driven architecture
+  - Real-time transaction monitoring
+  - Filtered subscriptions
+  - Event history with configurable limits
+  - Typed events for different chains
+
+- **ConfigManager** (`src/core/config/ConfigManager.ts`): Advanced configuration
+  - Environment-based configuration
+  - Runtime overrides
+  - Schema validation
+  - Chain-specific configurations
+
+- **ConnectionPool** (`src/core/pool/ConnectionPool.ts`): Resource management
+  - Connection pooling for HTTP/WebSocket
+  - Automatic connection health checks
+  - Configurable pool sizes and timeouts
+  - Leak prevention
+
+- **Error System** (`src/core/errors/index.ts`): Robust error handling
+  - Custom error types with context
+  - Retry logic with exponential backoff
+  - Circuit breaker patterns
+  - Error categorization (retryable vs non-retryable)
 
 ### Plugin System
 
@@ -248,15 +280,14 @@ The SDK supports 20+ blockchains with comprehensive functionality:
 |Chain|Derive|Balance|Send|History|Fee Estimation|Subscriptions|Architecture|
 |-----|------|-------|----|----|------------|-----------|------------|
 |**Bitcoin**|✅|✅|✅|✅|✅|✅|V2 (BaseAdapter)|
-|**Solana**|✅|✅|✅|⚠️|⚠️|⚠️|V1 (Legacy)|
+|**Solana**|✅|✅|✅|❌|❌|✅|V1 (Legacy)|
 |**Aptos**|✅|✅|✅|✅|✅|✅|V2 (BaseAdapter)|
 |**TON**|✅|✅|✅|✅|✅|✅|V2 (BaseAdapter)|
-|**EOS**|✅|✅|✅|✅|✅|✅|V2 (BaseAdapter)|
 |**NEAR**|✅|✅|✅|✅|✅|✅|V2 (BaseAdapter)|
-|**Cardano**|✅|✅|⚠️|❌|❌|❌|V1 (Legacy)|
-|**Polkadot**|✅|✅|⚠️|❌|❌|❌|V1 (Legacy)|
-|**Sui**|✅|✅|⚠️|❌|❌|❌|V1 (Legacy)|
-|**Tron**|✅|✅|⚠️|❌|❌|❌|V1 (Legacy)|
+|**Cardano**|✅|✅|✅|❌|❌|❌|V1 (Legacy)|
+|**Polkadot**|✅|✅|✅|❌|❌|❌|V1 (Legacy)|
+|**Sui**|✅|✅|✅|❌|❌|❌|V1 (Legacy)|
+|**Tron**|✅|✅|✅|❌|❌|❌|V1 (Legacy)|
 
 ### EVM-Compatible Chains
 All EVM chains share a unified implementation with full feature support:
@@ -287,12 +318,12 @@ The SDK's plugin architecture makes it easy to add support for new blockchains:
 ### Method 1: Extend BaseAdapter (Recommended)
 
 ```ts
-import { BaseAdapter } from 'drxa/core/adapters/BaseAdapter';
-import { SupportedChain, ChainConfig } from 'drxa/types';
+import { BaseAdapter } from 'drxa';
+import { SupportedChain, ChainConfig, FeeEstimate } from 'drxa';
 import Big from 'big.js';
 
 class MyChainAdapter extends BaseAdapter {
-  readonly chainName: SupportedChain = 'mychain';
+  readonly chainName: SupportedChain = 'mychain' as SupportedChain;
   readonly config: ChainConfig = {
     name: 'MyChain',
     symbol: 'MYC',
@@ -349,7 +380,7 @@ class MyChainAdapter extends BaseAdapter {
 ### Method 2: Register Your Adapter
 
 ```ts
-import { AdapterRegistry } from 'drxa';
+import { WalletSDK } from 'drxa';
 
 // Create adapter constructor for the registry
 class MyChainAdapterConstructor {
@@ -361,11 +392,18 @@ class MyChainAdapterConstructor {
 }
 
 // Register with the SDK
-const registry = AdapterRegistry.getInstance();
+const sdk = new WalletSDK({ seed: yourSeed });
+const registry = sdk.getRegistry();
 registry.registerAdapter(MyChainAdapterConstructor as any);
 
 // Now you can use it
-const myChainAdapter = await registry.loadAdapter('mychain');
+const wallet = sdk.wallet;
+const address = await wallet.deriveAddress({
+  scope: 'wallet',
+  userId: 'user123',
+  chain: 'mychain' as any,
+  index: '0'
+});
 ```
 
 ### Method 3: External Package
