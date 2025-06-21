@@ -1,5 +1,5 @@
 // src/adapters/tron/TronAdapter.ts
-import { IChainAdapter } from "../../types/index.js";
+import { IChainAdapter, SupportedChain, ChainConfig, TransactionResponse, FeeEstimate } from "../../types/index.js";
 import { deriveEntropy, DeriveParams } from "../../utils/derivation.js";
 import { keccak256 } from "js-sha3";
 import { getPublicKey as getSecp256k1Pub } from "@noble/secp256k1";
@@ -18,14 +18,31 @@ export interface TronConfig {
 }
 
 export class TronAdapter implements IChainAdapter {
-  public readonly chainName = "tron";
+  public readonly chainName: SupportedChain = "tron";
+  public readonly config: ChainConfig = {
+    name: 'Tron',
+    symbol: 'TRX',
+    decimals: 6,
+    category: 'other',
+    endpoints: {
+      http: {
+        url: 'https://api.trongrid.io',
+        timeout: 30000,
+        retryCount: 3,
+        retryDelay: 1000
+      }
+    },
+    explorer: {
+      url: 'https://tronscan.org'
+    }
+  };
   private tronWeb: TronWeb;
-  private readonly config: TronConfig;
+  private readonly tronConfig: TronConfig;
   private readonly masterSeed: Uint8Array;
 
   constructor(masterSeed: Uint8Array, config?: TronConfig) {
     const { http } = getRpcEndpoints('tron')!;
-    this.config = config || {};
+    this.tronConfig = config || {};
     this.tronWeb = new TronWeb({
       fullHost: config?.fullHost || http,
       solidityNode: config?.solidityHost || config?.fullHost || http,
@@ -96,11 +113,14 @@ export class TronAdapter implements IChainAdapter {
     params: DeriveParams,
     to: string,
     amount: Big
-  ): Promise<{ txHash: string }> {
+  ): Promise<TransactionResponse> {
     const txn = await this.signTransaction(params, to, amount.toNumber());
     const result = await this.broadcastTransaction(txn);
     if (result.result) {
-      return { txHash: result.txid };
+      return { 
+        txHash: result.txid,
+        status: 'pending'
+      };
     } else {
       throw new Error(`Failed to send transaction: ${result.message}`);
     }
@@ -113,8 +133,12 @@ export class TronAdapter implements IChainAdapter {
     params: DeriveParams,
     to: string,
     amount: Big
-  ): Promise<{ fee: unknown }> {
+  ): Promise<FeeEstimate> {
     // Tron network fees are generally 0 for TRX transfers; stub as 0
-    return { fee: 0 };
+    const fee = new Big(0);
+    return { 
+      baseFee: fee,
+      totalFee: fee
+    };
   }
 }

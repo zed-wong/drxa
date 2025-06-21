@@ -58,7 +58,7 @@ export class AptosAdapterV2 extends BaseAdapter {
     // Initialize Aptos SDK
     const aptosConfig = new AptosConfig({
       network: Network.MAINNET,
-      fullnode: this.config.endpoints.http.url,
+      fullnode: Array.isArray(this.config.endpoints.http) ? this.config.endpoints.http[0].url : this.config.endpoints.http.url,
     });
     
     this.sdk = new Aptos(aptosConfig);
@@ -174,7 +174,7 @@ export class AptosAdapterV2 extends BaseAdapter {
         accountAddress,
         options: {
           limit: 25,
-          orderBy: [{ transaction_version: 'desc' }]
+          // orderBy not supported in this SDK version
         }
       });
 
@@ -220,6 +220,9 @@ export class AptosAdapterV2 extends BaseAdapter {
     try {
       const address = await this.deriveAddress(params);
       const accountAddress = AccountAddress.fromString(address);
+      const privateKey = this.derivePrivateKey(params);
+      const ed25519PrivateKey = new Ed25519PrivateKey(privateKey);
+      const account = Account.fromPrivateKey({ privateKey: ed25519PrivateKey });
       
       // Build a dummy transaction to estimate gas
       const transaction = await this.sdk.transaction.build.simple({
@@ -233,7 +236,7 @@ export class AptosAdapterV2 extends BaseAdapter {
 
       // Simulate transaction to get gas used
       const simulation = await this.sdk.transaction.simulate.simple({
-        signerPublicKey: accountAddress, // This might need the actual public key
+        signerPublicKey: account.publicKey,
         transaction,
       });
 
@@ -272,7 +275,7 @@ export class AptosAdapterV2 extends BaseAdapter {
         accountAddress,
         options: {
           limit: Math.min(limit, 100),
-          orderBy: [{ transaction_version: 'desc' }]
+          // orderBy not supported in this SDK version
         }
       });
 
@@ -289,7 +292,7 @@ export class AptosAdapterV2 extends BaseAdapter {
               
               history.push({
                 txHash: tx.hash,
-                blockNumber: undefined, // Aptos uses versions
+                blockNumber: 0, // Aptos uses versions
                 timestamp: new Date(tx.timestamp).getTime(),
                 from: event.type === '0x1::coin::WithdrawEvent' ? address : 'unknown',
                 to: event.type === '0x1::coin::DepositEvent' ? address : 'unknown',
@@ -340,7 +343,7 @@ export class AptosAdapterV2 extends BaseAdapter {
     try {
       return await this.sdk.view({
         payload: {
-          function: functionId,
+          function: functionId as `${string}::${string}::${string}`,
           typeArguments,
           functionArguments,
         },

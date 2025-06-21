@@ -5,7 +5,7 @@ import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountInfo } from '@polkadot/types/interfaces';
 import { ChainManager } from "../../core/ChainManager.js";
 import { getRpcEndpoints } from "../../constants/config.js";
-import { IChainAdapter } from "../../types/index.js";
+import { IChainAdapter, SupportedChain, ChainConfig, TransactionResponse } from "../../types/index.js";
 import { deriveEntropy, DeriveParams } from "../../utils/derivation.js";
 
 export interface PolkadotConfig {
@@ -13,7 +13,24 @@ export interface PolkadotConfig {
 }
 
 export class PolkadotAdapter implements IChainAdapter {
-  public readonly chainName = "polkadot";
+  public readonly chainName: SupportedChain = "polkadot";
+  public readonly config: ChainConfig = {
+    name: 'Polkadot',
+    symbol: 'DOT',
+    decimals: 10,
+    category: 'other',
+    endpoints: {
+      http: {
+        url: 'wss://rpc.polkadot.io',
+        timeout: 30000,
+        retryCount: 3,
+        retryDelay: 1000
+      }
+    },
+    explorer: {
+      url: 'https://polkadot.subscan.io'
+    }
+  };
   private readonly wsUrl: string;
   private readonly masterSeed: Uint8Array;
   private api: ApiPromise | null = null;
@@ -62,13 +79,16 @@ export class PolkadotAdapter implements IChainAdapter {
     params: DeriveParams,
     to: string,
     amount: Big
-  ): Promise<{ txHash: string }> {
+  ): Promise<TransactionResponse> {
     const entropy = deriveEntropy(this.masterSeed, params);
     const seed = entropy.slice(0, 32);
     const keyring = new Keyring({ type: 'sr25519' });
     const pair = keyring.addFromSeed(seed);
     const txHash = await this.signAndSend(pair, to, amount.toString());
-    return { txHash };
+    return { 
+      txHash,
+      status: 'pending'
+    };
   }
 
   /**

@@ -1,6 +1,6 @@
 import { ChainManager } from "../../core/ChainManager.js";
 import { getRpcEndpoints } from "../../constants/config.js";
-import { IChainAdapter } from "../../types/index.js";
+import { IChainAdapter, SupportedChain, ChainConfig, TransactionResponse } from "../../types/index.js";
 import { deriveEntropy, DeriveParams } from "../../utils/derivation.js";
 import Big from "big.js";
 import {
@@ -12,7 +12,25 @@ import {
 } from "@aptos-labs/ts-sdk";
 
 export class AptosAdapter implements IChainAdapter {
-  public readonly chainName = "aptos";
+  public readonly chainName: SupportedChain = "aptos";
+  public readonly config: ChainConfig = {
+    name: 'Aptos',
+    symbol: 'APT',
+    decimals: 8,
+    category: 'other',
+    endpoints: {
+      http: {
+        url: 'https://api.mainnet.aptoslabs.com/v1',
+        timeout: 30000,
+        retryCount: 3,
+        retryDelay: 1000
+      }
+    },
+    explorer: {
+      url: 'https://explorer.aptoslabs.com',
+      apiUrl: 'https://api.mainnet.aptoslabs.com/v1'
+    }
+  };
   private readonly sdk: Aptos;
   private readonly masterSeed: Uint8Array;
 
@@ -53,7 +71,7 @@ export class AptosAdapter implements IChainAdapter {
     params: DeriveParams,
     to: string,
     amount: Big
-  ): Promise<{ txHash: string }> {
+  ): Promise<TransactionResponse> {
     const acct = await this.deriveAccount(params);
     const txReq = await this.sdk.transaction.build.simple({
       sender: acct.accountAddress,
@@ -68,6 +86,9 @@ export class AptosAdapter implements IChainAdapter {
       transaction: txReq,
     });
     const committed = await this.sdk.waitForTransaction({ transactionHash: pending.hash });
-    return { txHash: committed.hash };
+    return { 
+      txHash: committed.hash,
+      status: 'confirmed'
+    };
   }
 }

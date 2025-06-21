@@ -11,8 +11,7 @@ export type SupportedChain =
   | 'sui' 
   | 'tron' 
   | 'ton' 
-  | 'near' 
-  | 'eos';
+  | 'near';
 
 export type ChainCategory = 'evm' | 'utxo' | 'account' | 'other';
 
@@ -115,21 +114,6 @@ export interface TonTransactionConfig extends BaseTransactionConfig {
   seqno?: number;
 }
 
-// EOS-specific transaction configuration
-export interface EosTransactionConfig extends BaseTransactionConfig {
-  // Transaction options
-  expiration?: number;
-  refBlockNum?: number;
-  refBlockPrefix?: number;
-  
-  // Resource configuration
-  maxCpuUsageMs?: number;
-  maxNetUsageWords?: number;
-  
-  // Advanced options
-  delaySec?: number;
-  contextFreeActions?: any[];
-}
 
 // NEAR-specific transaction configuration
 export interface NearTransactionConfig extends BaseTransactionConfig {
@@ -183,7 +167,6 @@ export type TransactionConfig =
   | BitcoinTransactionConfig  
   | SolanaTransactionConfig
   | TonTransactionConfig
-  | EosTransactionConfig
   | NearTransactionConfig
   | AptosTransactionConfig
   | CardanoTransactionConfig
@@ -366,7 +349,7 @@ export interface MetricsCollector {
 export function isValidChain(chain: string): chain is SupportedChain {
   const chains: SupportedChain[] = [
     'ethereum', 'bsc', 'polygon', 'avalanche', 'arbitrum', 'optimism', 'cronos', 'sonic', 'base',
-    'bitcoin', 'solana', 'polkadot', 'cardano', 'aptos', 'sui', 'tron', 'ton', 'near', 'eos'
+    'bitcoin', 'solana', 'polkadot', 'cardano', 'aptos', 'sui', 'tron', 'ton', 'near'
   ];
   return chains.includes(chain as SupportedChain);
 }

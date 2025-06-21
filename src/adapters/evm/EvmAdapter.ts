@@ -1,5 +1,5 @@
 import { ChainManager } from "../../core/ChainManager.js";
-import { IChainAdapter } from "../../types/index.js";
+import { IChainAdapter, SupportedChain, ChainConfig, TransactionResponse, TransactionConfig, EvmTransactionConfig, SubscriptionCallback, Unsubscribe, IncomingTransaction, FeeEstimate, TransactionHistory } from "../../types/index.js";
 import { deriveEntropy, DeriveParams } from "../../utils/derivation.js";
 import { getRpcEndpoints, SUPPORTED_EVM_CHAINS } from "../../constants/config.js";
 import Big from "big.js";
@@ -24,9 +24,10 @@ export interface EvmConfig {
 }
 
 export class EvmAdapter implements IChainAdapter {
-  public readonly chainName: string;
+  public readonly chainName: SupportedChain;
   public readonly chainId: number;
-  private readonly config: EvmConfig;
+  public readonly config: ChainConfig;
+  private readonly evmConfig: EvmConfig;
   protected provider: providers.JsonRpcProvider;
   protected wsProvider: providers.WebSocketProvider;
   private masterSeed: Uint8Array;
@@ -36,8 +37,31 @@ export class EvmAdapter implements IChainAdapter {
     if (!rpcEndpoints) {
       throw new Error(`RPC endpoints not found for chain ${config?.chainName}`);
     }
-    this.config = config || {};
-    this.chainName = config?.chainName || "ethereum";
+    this.evmConfig = config || {};
+    this.chainName = (config?.chainName || "ethereum") as SupportedChain;
+    
+    // Set up ChainConfig
+    this.config = {
+      name: this.chainName,
+      symbol: this.getChainSymbol(this.chainName),
+      decimals: 18,
+      category: 'evm',
+      endpoints: {
+        http: {
+          url: config?.rpcUrl || rpcEndpoints.http,
+          timeout: 30000,
+          retryCount: 3,
+          retryDelay: 1000
+        },
+        ws: config?.wsUrl || rpcEndpoints.ws ? {
+          url: config?.wsUrl || rpcEndpoints.ws || '',
+          timeout: 30000,
+          retryCount: 3,
+          retryDelay: 1000
+        } : undefined
+      },
+      explorer: this.getExplorerConfig(this.chainName)
+    };
 
     // Determine chain ID: prefer config.chainId, otherwise use default RPC config
     this.chainId = config?.chainId !== undefined
@@ -88,8 +112,9 @@ export class EvmAdapter implements IChainAdapter {
   async send(
     params: DeriveParams,
     to: string,
-    amount: Big
-  ): Promise<{ txHash: string }> {
+    amount: Big,
+    config?: TransactionConfig
+  ): Promise<TransactionResponse> {
     const { priv } = this.derivePrivateKey(params);
     const wallet = new Wallet(priv, this.provider);
     const tx = await wallet.sendTransaction({
@@ -97,7 +122,12 @@ export class EvmAdapter implements IChainAdapter {
       value: BigNumber.from(amount.toString()),
     });
     const receipt = await tx.wait();
-    return { txHash: receipt.transactionHash };
+    return { 
+      txHash: receipt.transactionHash,
+      blockNumber: receipt.blockNumber,
+      confirmations: receipt.confirmations,
+      status: receipt.status === 1 ? 'confirmed' : 'failed'
+    };
   }
 
   async sendToken(
@@ -114,23 +144,34 @@ export class EvmAdapter implements IChainAdapter {
     const value = BigNumber.from(scaled.toFixed(0));
     const tx = await contract.transfer(to, value);
     const receipt = await tx.wait();
-    return { txHash: receipt.transactionHash };
+    return { 
+      txHash: receipt.transactionHash,
+      blockNumber: receipt.blockNumber,
+      confirmations: receipt.confirmations,
+      status: receipt.status === 1 ? 'confirmed' : 'failed'
+    } as TransactionResponse;
   }
 
   async subscribe(
     address: string,
-    onIncoming: (txHash: string, amount: Big) => void
-  ): Promise<{ unsubscribe: () => void }> {
+    callback: SubscriptionCallback
+  ): Promise<Unsubscribe> {
     let last = await this.provider.getBalance(address);
     const handler = async (block: number) => {
       const bal = await this.provider.getBalance(address);
       if (bal.gt(last)) {
-        onIncoming(`block${block}`, Big(bal.sub(last).toString()));
+        callback({
+          txHash: `block${block}`,
+          from: 'unknown',
+          to: address,
+          amount: Big(bal.sub(last).toString()),
+          blockNumber: block
+        });
       }
       last = bal;
     };
     this.wsProvider.on("block", handler);
-    return { unsubscribe: () => this.wsProvider.off("block", handler) };
+    return () => { this.wsProvider.off("block", handler); };
   }
 
   /**
@@ -140,8 +181,10 @@ export class EvmAdapter implements IChainAdapter {
     params: DeriveParams,
     to: string,
     amount: Big,
-    tokenContract?: string
-  ): Promise<{ fee: Big }> {
+    config?: TransactionConfig
+  ): Promise<FeeEstimate> {
+    const evmConfig = config as EvmTransactionConfig;
+    const tokenContract = evmConfig?.data?.includes('0xa9059cbb') ? evmConfig.to : undefined;
     const { address } = this.derivePrivateKey(params);
     const gasPrice = await this.provider.getGasPrice();
     let gasLimit: BigNumber;
@@ -160,27 +203,40 @@ export class EvmAdapter implements IChainAdapter {
     }
 
     const feeWei = gasLimit.mul(gasPrice);
-    return { fee: Big(feeWei.toString()) };
+    return { 
+      baseFee: new Big(gasPrice.toString()).div(1e9),
+      totalFee: new Big(feeWei.toString()).div(1e18),
+      gasLimit: new Big(gasLimit.toString()),
+      gasPrice: new Big(gasPrice.toString()).div(1e9)
+    };
   }
 
   /**
    * Fetch transaction history for the derived address (requires explorerApiKey)
    */
   async getHistory(
-    params: DeriveParams
-  ): Promise<Array<{ txHash: string; amount: Big }>> {
-    if (!this.config.explorerApiKey) {
+    params: DeriveParams,
+    limit?: number
+  ): Promise<TransactionHistory[]> {
+    if (!this.evmConfig.explorerApiKey) {
       throw new Error("explorerApiKey must be provided in config to fetch history");
     }
     const { address } = this.derivePrivateKey(params);
     const etherscan = new providers.EtherscanProvider(
       this.chainName,
-      this.config.explorerApiKey
+      this.evmConfig.explorerApiKey
     );
     const txs = await etherscan.getHistory(address);
     return txs.map((tx) => ({
-      txHash: tx.hash,
-      amount: Big(tx.value.toString()),
+      txHash: tx.hash!,
+      blockNumber: tx.blockNumber!,
+      timestamp: tx.timestamp ? tx.timestamp * 1000 : Date.now(),
+      from: tx.from,
+      to: tx.to!,
+      amount: new Big(tx.value.toString()).div(1e18),
+      fee: tx.gasPrice ? new Big(tx.gasPrice.mul((tx as any).gasUsed || 0).toString()).div(1e18) : new Big(0),
+      status: 'confirmed' as const,
+      direction: tx.from.toLowerCase() === address.toLowerCase() ? 'outgoing' as const : 'incoming' as const
     }));
   }
 
@@ -192,5 +248,34 @@ export class EvmAdapter implements IChainAdapter {
         { chainName: chain, rpcUrl: http, wsUrl: ws, chainId },
       );
     });
+  }
+  
+  private getChainSymbol(chain: string): string {
+    const symbols: Record<string, string> = {
+      ethereum: 'ETH',
+      bsc: 'BNB',
+      polygon: 'MATIC',
+      avalanche: 'AVAX',
+      arbitrum: 'ETH',
+      optimism: 'ETH',
+      cronos: 'CRO',
+      sonic: 'S',
+      base: 'ETH'
+    };
+    return symbols[chain] || 'ETH';
+  }
+  
+  private getExplorerConfig(chain: string): { url: string; apiUrl?: string } | undefined {
+    const explorers: Record<string, { url: string; apiUrl?: string }> = {
+      ethereum: { url: 'https://etherscan.io', apiUrl: 'https://api.etherscan.io/api' },
+      bsc: { url: 'https://bscscan.com', apiUrl: 'https://api.bscscan.com/api' },
+      polygon: { url: 'https://polygonscan.com', apiUrl: 'https://api.polygonscan.com/api' },
+      avalanche: { url: 'https://snowtrace.io', apiUrl: 'https://api.snowtrace.io/api' },
+      arbitrum: { url: 'https://arbiscan.io', apiUrl: 'https://api.arbiscan.io/api' },
+      optimism: { url: 'https://optimistic.etherscan.io', apiUrl: 'https://api-optimistic.etherscan.io/api' },
+      cronos: { url: 'https://cronoscan.com', apiUrl: 'https://api.cronoscan.com/api' },
+      base: { url: 'https://basescan.org', apiUrl: 'https://api.basescan.org/api' }
+    };
+    return explorers[chain];
   }
 }

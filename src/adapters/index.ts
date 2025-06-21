@@ -6,7 +6,6 @@ import { BitcoinAdapterV2 } from "./bitcoin/BitcoinAdapterV2.js";
 import { EvmAdapterV2, createEvmAdapter } from "./evm/EvmAdapterV2.js";
 import { AptosAdapterV2 } from "./aptos/AptosAdapterV2.js";
 import { TonAdapter } from "./ton/TonAdapter.js";
-import { EosAdapter } from "./eos/EosAdapter.js";
 import { NearAdapter } from "./near/NearAdapter.js";
 import { SolanaAdapter } from "./solana/SolanaAdapter.js";
 import { PolkadotAdapter } from "./polkadot/PolkadotAdapter.js";
@@ -82,18 +81,6 @@ class TonAdapterConstructor {
   }
 }
 
-class EosAdapterConstructor {
-  static readonly chainName = 'eos' as const;
-  
-  constructor(
-    masterSeed: Uint8Array,
-    config?: any,
-    logger?: any,
-    metrics?: any
-  ) {
-    return new EosAdapter(masterSeed, config, logger, metrics);
-  }
-}
 
 class NearAdapterConstructor {
   static readonly chainName = 'near' as const;
@@ -117,7 +104,7 @@ class SolanaAdapterConstructor {
     logger?: any,
     metrics?: any
   ) {
-    return new SolanaAdapter(masterSeed, config, logger, metrics);
+    return new SolanaAdapter(masterSeed);
   }
 }
 
@@ -130,7 +117,7 @@ class PolkadotAdapterConstructor {
     logger?: any,
     metrics?: any
   ) {
-    return new PolkadotAdapter(masterSeed, config, logger, metrics);
+    return new PolkadotAdapter(masterSeed, config);
   }
 }
 
@@ -143,7 +130,7 @@ class TronAdapterConstructor {
     logger?: any,
     metrics?: any
   ) {
-    return new TronAdapter(masterSeed, config, logger, metrics);
+    return new TronAdapter(masterSeed, config);
   }
 }
 
@@ -157,7 +144,6 @@ export function registerBuiltInAdapters(registry: AdapterRegistry): void {
     registry.registerAdapter(BSCAdapterConstructor as any);
     registry.registerAdapter(AptosAdapterConstructor as any);
     registry.registerAdapter(TonAdapterConstructor as any);
-    registry.registerAdapter(EosAdapterConstructor as any);
     registry.registerAdapter(NearAdapterConstructor as any);
     registry.registerAdapter(SolanaAdapterConstructor as any);
     registry.registerAdapter(PolkadotAdapterConstructor as any);
@@ -210,7 +196,6 @@ export { BitcoinAdapterV2 } from "./bitcoin/BitcoinAdapterV2.js";
 export { EvmAdapterV2, createEvmAdapter } from "./evm/EvmAdapterV2.js";
 export { AptosAdapterV2 } from "./aptos/AptosAdapterV2.js";
 export { TonAdapter } from "./ton/TonAdapter.js";
-export { EosAdapter } from "./eos/EosAdapter.js";
 export { NearAdapter } from "./near/NearAdapter.js";
 export { SolanaAdapter } from "./solana/SolanaAdapter.js";
 export { PolkadotAdapter } from "./polkadot/PolkadotAdapter.js";

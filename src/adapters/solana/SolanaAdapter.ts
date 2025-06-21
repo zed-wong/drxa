@@ -1,5 +1,5 @@
 // src/adapters/solana/SolanaAdapter.ts
-import { IChainAdapter } from "../../types/index.js";
+import { IChainAdapter, SupportedChain, ChainConfig, TransactionResponse, SubscriptionCallback, Unsubscribe, IncomingTransaction } from "../../types/index.js";
 import { deriveForChain, DeriveParams } from "../../utils/derivation.js";
 import {
   createSolanaClient,
@@ -16,7 +16,24 @@ import Big from "big.js";
 import nacl from "tweetnacl";
 
 export class SolanaAdapter implements IChainAdapter {
-  readonly chainName = "solana";
+  readonly chainName: SupportedChain = "solana";
+  readonly config: ChainConfig = {
+    name: 'Solana',
+    symbol: 'SOL',
+    decimals: 9,
+    category: 'other',
+    endpoints: {
+      http: {
+        url: 'https://api.mainnet-beta.solana.com',
+        timeout: 30000,
+        retryCount: 3,
+        retryDelay: 1000
+      }
+    },
+    explorer: {
+      url: 'https://explorer.solana.com'
+    }
+  };
   private rpc: ReturnType<typeof createSolanaClient>["rpc"];
   private sendAndConfirm: ReturnType<
     typeof createSolanaClient
@@ -56,7 +73,7 @@ export class SolanaAdapter implements IChainAdapter {
     params: DeriveParams,
     to: string,
     amount: Big
-  ): Promise<{ txHash: string }> {
+  ): Promise<TransactionResponse> {
     const signer = await this.getSigner(params);
     const lamports = amount.round(0).toNumber();
 
@@ -76,14 +93,17 @@ export class SolanaAdapter implements IChainAdapter {
 
     const signedTx = await signTransactionMessageWithSigners(tx);
     const txHash = await this.sendAndConfirm(signedTx);
-    return { txHash };
+    return { 
+      txHash,
+      status: 'confirmed'
+    };
   }
 
   /** Poll for new signatures every 10s on the given address */
   async subscribe(
     address: string,
-    onIncoming: (txHash: string, amount: Big) => void
-  ): Promise<{ unsubscribe: () => void }> {
+    callback: SubscriptionCallback
+  ): Promise<Unsubscribe> {
     const addr = address as Address;
     const seen = new Set<string>();
     const intervalId = setInterval(async () => {
@@ -95,7 +115,13 @@ export class SolanaAdapter implements IChainAdapter {
         for (const info of sigInfos) {
           if (!seen.has(info.signature)) {
             seen.add(info.signature);
-            onIncoming(info.signature, new Big(0));
+            callback({
+              txHash: info.signature,
+              from: 'unknown',
+              to: address,
+              amount: new Big(0),
+              timestamp: info.blockTime ? Number(info.blockTime) * 1000 : undefined
+            });
           }
         }
       } catch (err) {
@@ -103,6 +129,6 @@ export class SolanaAdapter implements IChainAdapter {
       }
     }, 10_000);
 
-    return { unsubscribe: () => clearInterval(intervalId) };
+    return () => clearInterval(intervalId);
   }
 }

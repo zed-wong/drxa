@@ -21,8 +21,10 @@ import {
   transactions, 
   providers 
 } from 'near-api-js';
-import { KeyPair } from 'near-api-js/lib/utils';
-import { parseNearAmount, formatNearAmount } from 'near-api-js/lib/utils/format';
+// @ts-ignore
+import { KeyPair } from 'near-api-js/lib/utils/key_pair.js';
+// @ts-ignore
+import { parseNearAmount, formatNearAmount } from 'near-api-js/lib/utils/format.js';
 
 /**
  * NEAR Protocol adapter with complete functionality
@@ -63,11 +65,11 @@ export class NearAdapter extends BaseAdapter {
     // Initialize NEAR connection
     this.connection = Connection.fromConfig({
       networkId: 'mainnet',
-      provider: { type: 'JsonRpcProvider', args: { url: this.config.endpoints.http.url } },
+      provider: { type: 'JsonRpcProvider', args: { url: Array.isArray(this.config.endpoints.http) ? this.config.endpoints.http[0].url : this.config.endpoints.http.url } },
       signer: { type: 'InMemorySigner', keyStore: new keyStores.InMemoryKeyStore() }
     });
 
-    this.near = new Near(this.connection);
+    this.near = new Near(this.connection as any);
   }
 
   protected async deriveAddressFromPrivateKey(privateKey: Uint8Array): Promise<string> {
@@ -95,7 +97,7 @@ export class NearAdapter extends BaseAdapter {
     } catch (error) {
       this.logger?.error('Failed to get NEAR balance', error as Error, { address });
       // If account doesn't exist, return 0
-      if (error.type === 'AccountDoesNotExist') {
+      if ((error as any).type === 'AccountDoesNotExist') {
         return new Big(0);
       }
       throw error;
@@ -118,7 +120,7 @@ export class NearAdapter extends BaseAdapter {
       const keyPair = this.createKeyPairFromPrivateKey(privateKey);
       
       // Add key to keystore
-      await this.connection.signer.keyStore.setKey('mainnet', from, keyPair);
+      await (this.connection.signer as any).keyStore.setKey('mainnet', from, keyPair);
       
       // Get account
       const account = await this.near.account(from);
@@ -126,7 +128,7 @@ export class NearAdapter extends BaseAdapter {
       // Send transfer
       const result = await account.sendMoney(
         to,
-        amount.toString() // Amount in yoctoNEAR
+        BigInt(new Big(amount.toString()).times(1e24).toFixed(0)) // Convert NEAR to yoctoNEAR
       );
 
       this.logger?.info('NEAR transaction sent', {
@@ -138,8 +140,8 @@ export class NearAdapter extends BaseAdapter {
 
       return {
         txHash: result.transaction.hash,
-        blockNumber: result.transaction_outcome.block_hash ? undefined : undefined,
-        status: result.status.SuccessValue !== undefined ? 'confirmed' : 'failed'
+        blockNumber: (result.transaction_outcome as any).block_hash ? undefined : undefined,
+        status: (result.status as any).SuccessValue !== undefined ? 'confirmed' : 'failed'
       };
     } catch (error) {
       this.logger?.error('Failed to send NEAR transaction', error as Error, {
@@ -230,7 +232,7 @@ export class NearAdapter extends BaseAdapter {
 
       return {
         txHash: result.transaction.hash,
-        status: result.status.SuccessValue !== undefined ? 'confirmed' : 'failed'
+        status: (result.status as any).SuccessValue !== undefined ? 'confirmed' : 'failed'
       };
     } catch (error) {
       this.logger?.error('Failed to create NEAR account', error as Error, { accountId });
@@ -246,7 +248,7 @@ export class NearAdapter extends BaseAdapter {
 
       return {
         txHash: result.transaction.hash,
-        status: result.status.SuccessValue !== undefined ? 'confirmed' : 'failed'
+        status: (result.status as any).SuccessValue !== undefined ? 'confirmed' : 'failed'
       };
     } catch (error) {
       this.logger?.error('Failed to deploy NEAR contract', error as Error, { accountId });
@@ -268,8 +270,8 @@ export class NearAdapter extends BaseAdapter {
         contractId: accountId,
         methodName,
         args,
-        gas: gas || '300000000000000',
-        attachedDeposit: deposit || '0'
+        gas: BigInt(gas || '300000000000000'),
+        attachedDeposit: BigInt(deposit || '0')
       });
 
       return result;

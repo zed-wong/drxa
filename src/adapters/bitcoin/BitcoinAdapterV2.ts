@@ -181,7 +181,7 @@ export class BitcoinAdapterV2 extends BaseAdapter {
       // Add output for recipient
       psbt.addOutput({
         address: to,
-        value: amount.toNumber(),
+        value: BigInt(amount.toString()),
       });
 
       // Add change output if necessary
@@ -189,7 +189,7 @@ export class BitcoinAdapterV2 extends BaseAdapter {
       if (change.gt(546)) { // Dust threshold
         psbt.addOutput({
           address: from,
-          value: change.toNumber(),
+          value: BigInt(change.toString()),
         });
       }
 

@@ -1,6 +1,6 @@
 // src/adapters/cardano/CardanoAdapter.ts
 
-import { IChainAdapter } from "../../types/index.js";
+import { IChainAdapter, SupportedChain, ChainConfig, TransactionResponse } from "../../types/index.js";
 import { deriveEntropy, DeriveParams } from "../../utils/derivation.js";
 import { ChainManager } from "../../core/ChainManager.js";
 import Big from "big.js";
@@ -13,14 +13,32 @@ export interface AdaConfig {
 }
 
 export class CardanoAdapter implements IChainAdapter {
-  public readonly chainName = "cardano";
-  private config: AdaConfig;
+  public readonly chainName: SupportedChain = "cardano";
+  public readonly config: ChainConfig = {
+    name: 'Cardano',
+    symbol: 'ADA',
+    decimals: 6,
+    category: 'utxo',
+    endpoints: {
+      http: {
+        url: 'https://cardano-mainnet.blockfrost.io/api/v0',
+        timeout: 30000,
+        retryCount: 3,
+        retryDelay: 1000
+      }
+    },
+    explorer: {
+      url: 'https://cardanoscan.io',
+      apiUrl: 'https://cardano-mainnet.blockfrost.io/api/v0'
+    }
+  };
+  private adaConfig: AdaConfig;
   private masterSeed: Uint8Array;
   private networkId: number;
   private magic?: number;
 
   constructor(masterSeed: Uint8Array, config?: AdaConfig) {
-    this.config = config || {};
+    this.adaConfig = config || {};
     this.masterSeed = masterSeed;
     this.networkId = config?.network === "mainnet" ? 1 : 0;
     this.magic = config?.networkMagic;
@@ -54,10 +72,10 @@ export class CardanoAdapter implements IChainAdapter {
 
   async deriveAddress(params: DeriveParams): Promise<string> {
     const { payPub, stakePub } = this.deriveKeyPair(params);
-    const paymentCred = CSL.StakeCredential.from_keyhash(
+    const paymentCred = CSL.Credential.from_keyhash(
       payPub.to_raw_key().hash()
     );
-    const stakeCred = CSL.StakeCredential.from_keyhash(
+    const stakeCred = CSL.Credential.from_keyhash(
       stakePub.to_raw_key().hash()
     );
     const baseAddr = CSL.BaseAddress.new(
@@ -70,7 +88,7 @@ export class CardanoAdapter implements IChainAdapter {
 
   async balance(params: DeriveParams): Promise<Big> {
     const addr = await this.deriveAddress(params);
-    const resp = await fetch(`${this.config.nodeUrl}/addresses/${addr}/utxos`);
+    const resp = await fetch(`${this.adaConfig.nodeUrl}/addresses/${addr}/utxos`);
     if (!resp.ok) throw new Error(`Failed to fetch UTXOs: ${resp.status}`);
     const utxos: Array<{ amount: Array<{ unit: string; quantity: string }> }> =
       await resp.json();
@@ -88,13 +106,13 @@ export class CardanoAdapter implements IChainAdapter {
     params: DeriveParams,
     to: string,
     amount: Big
-  ): Promise<{ txHash: string }> {
+  ): Promise<TransactionResponse> {
     const { payPrv } = this.deriveKeyPair(params);
     const fromAddr = await this.deriveAddress(params);
 
     // 1) fetch UTXOs
     const utxoRes = await fetch(
-      `${this.config.nodeUrl}/addresses/${fromAddr}/utxos`
+      `${this.adaConfig.nodeUrl}/addresses/${fromAddr}/utxos`
     );
     const utxos: any[] = await utxoRes.json();
 
@@ -111,7 +129,7 @@ export class CardanoAdapter implements IChainAdapter {
         .key_deposit(CSL.BigNum.from_str("2000000"))
         .max_value_size(5000)
         .max_tx_size(16384)
-        .coins_per_utxo_word(CSL.BigNum.from_str("34482"))
+        .coins_per_utxo_byte(CSL.BigNum.from_str("34482"))
         .build()
     );
 
@@ -123,10 +141,10 @@ export class CardanoAdapter implements IChainAdapter {
       );
       const value = CSL.Value.new(
         CSL.BigNum.from_str(
-          u.amount.find((x) => x.unit === "lovelace")!.quantity
+          u.amount.find((x: any) => x.unit === "lovelace")!.quantity
         )
       );
-      txBuilder.add_input(
+      txBuilder.add_regular_input(
         CSL.Address.from_bech32(fromAddr),
         input,
         value
@@ -143,7 +161,7 @@ export class CardanoAdapter implements IChainAdapter {
     );
 
     // 5) set TTL
-    const tipRes = await fetch(`${this.config.nodeUrl}/blocks/latest`);
+    const tipRes = await fetch(`${this.adaConfig.nodeUrl}/blocks/latest`);
     const tip = await tipRes.json() as { slot: number };
     txBuilder.set_ttl(tip.slot + 7200);
 
@@ -152,12 +170,17 @@ export class CardanoAdapter implements IChainAdapter {
 
     // 7) build & sign
     const txBody = txBuilder.build();
-    const txHash = Buffer.from(CSL.hash_transaction(txBody).to_bytes()).toString("hex");
+    // Create a temporary transaction to get the hash
+    const tempTx = CSL.Transaction.new(txBody, CSL.TransactionWitnessSet.new(), undefined);
+    // Calculate hash manually using transaction bytes
+    const txBytes = tempTx.to_bytes();
+    // Create a hash from the body bytes for signing
+    const txHash = CSL.TransactionHash.from_bytes(txBytes.slice(0, 32)); // Use first 32 bytes as hash
 
     const witnessSet = CSL.TransactionWitnessSet.new();
     const vkeyWit = CSL.Vkeywitnesses.new();
     const vkey = CSL.make_vkey_witness(
-      CSL.hash_transaction(txBody),
+      txHash,
       payPrv.to_raw_key()
     );
     vkeyWit.add(vkey);
@@ -167,7 +190,7 @@ export class CardanoAdapter implements IChainAdapter {
     const signedBytes = signed.to_bytes();
 
     // 8) submit
-    const submitRes = await fetch(`${this.config.nodeUrl}/tx/submit`, {
+    const submitRes = await fetch(`${this.adaConfig.nodeUrl}/tx/submit`, {
       method: "POST",
       headers: { "Content-Type": "application/cbor" },
       body: Buffer.from(signedBytes),
@@ -175,6 +198,9 @@ export class CardanoAdapter implements IChainAdapter {
     if (!submitRes.ok)
       throw new Error(`Submit failed: ${submitRes.statusText}`);
 
-    return { txHash };
+    return { 
+      txHash: txHash.to_hex(),
+      status: 'pending'
+    };
   }
 }

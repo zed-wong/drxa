@@ -1,6 +1,6 @@
 import { ChainManager } from "../../core/ChainManager.js";
 import { getRpcEndpoints } from "../../constants/config.js";
-import { IChainAdapter } from "../../types/index.js";
+import { IChainAdapter, SupportedChain, ChainConfig, TransactionResponse, TransactionConfig, BitcoinTransactionConfig, SubscriptionCallback, Unsubscribe, IncomingTransaction } from "../../types/index.js";
 import { deriveEntropy, DeriveParams } from "../../utils/derivation.js";
 import Big from "big.js";
 import axios from "axios";
@@ -19,7 +19,25 @@ initEccLib(tinysecp);
  * Bitcoin adapter: derive, send, and monitor via Blockstream API using Taproot (P2TR).
  */
 export class BitcoinAdapter implements IChainAdapter {
-  readonly chainName = "bitcoin";
+  readonly chainName: SupportedChain = "bitcoin";
+  readonly config: ChainConfig = {
+    name: 'Bitcoin',
+    symbol: 'BTC',
+    decimals: 8,
+    category: 'utxo',
+    endpoints: {
+      http: {
+        url: 'https://blockstream.info/api',
+        timeout: 30000,
+        retryCount: 3,
+        retryDelay: 1000
+      }
+    },
+    explorer: {
+      url: 'https://blockstream.info',
+      apiUrl: 'https://blockstream.info/api'
+    }
+  };
   private explorerApi: string;
   private masterSeed: Uint8Array;
 
@@ -72,8 +90,10 @@ export class BitcoinAdapter implements IChainAdapter {
     params: DeriveParams,
     to: string,
     amount: Big,
-    feeRateSatPerVByte: number = 1
-  ): Promise<{ txHash: string }> {
+    config?: TransactionConfig
+  ): Promise<TransactionResponse> {
+    const btcConfig = config as BitcoinTransactionConfig;
+    const feeRateSatPerVByte = btcConfig?.satPerVByte?.toNumber() || btcConfig?.feeRate?.toNumber() || 1;
     const { priv, address: from } = this.derivePrivateKey(params);
     const utxos: Array<{ txid: string; vout: number; value: number }> = (
       await axios.get(`${this.explorerApi}/address/${from}/utxo`)
@@ -112,7 +132,10 @@ export class BitcoinAdapter implements IChainAdapter {
 
     const rawTx = psbt.extractTransaction().toHex();
     const { data: txid } = await axios.post(`${this.explorerApi}/tx`, rawTx);
-    return { txHash: txid };
+    return { 
+      txHash: txid,
+      status: 'pending'
+    };
   }
 
   /**
@@ -120,8 +143,8 @@ export class BitcoinAdapter implements IChainAdapter {
    */
   async subscribe(
     address: string,
-    onIncoming: (txHash: string, amount: Big) => void
-  ): Promise<{ unsubscribe: () => void }> {
+    callback: SubscriptionCallback
+  ): Promise<Unsubscribe> {
     const seen = new Set<string>();
     const interval = setInterval(async () => {
       try {
@@ -129,14 +152,28 @@ export class BitcoinAdapter implements IChainAdapter {
         for (const tx of txs) {
           if (!seen.has(tx.txid)) {
             seen.add(tx.txid);
-            onIncoming(tx.txid, new Big(0));
+            // Find the amount sent to this address
+            let amount = new Big(0);
+            for (const vout of tx.vout || []) {
+              if (vout.scriptpubkey_address === address) {
+                amount = amount.plus(vout.value);
+              }
+            }
+            callback({
+              txHash: tx.txid,
+              from: 'unknown',
+              to: address,
+              amount,
+              blockNumber: tx.status?.block_height,
+              timestamp: tx.status?.block_time ? tx.status.block_time * 1000 : undefined
+            });
           }
         }
       } catch (e) {
         console.error("Bitcoin subscribe error", e);
       }
     }, 15000);
-    return { unsubscribe: () => clearInterval(interval) };
+    return () => clearInterval(interval);
   }
 }
 

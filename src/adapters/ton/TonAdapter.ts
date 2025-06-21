@@ -53,7 +53,7 @@ export class TonAdapter extends BaseAdapter {
     
     // Initialize TON client
     this.client = new TonClient({
-      endpoint: this.config.endpoints.http.url,
+      endpoint: Array.isArray(this.config.endpoints.http) ? this.config.endpoints.http[0].url : this.config.endpoints.http.url,
       timeout: this.adapterConfig.timeout || 30000
     });
   }
@@ -122,7 +122,7 @@ export class TonAdapter extends BaseAdapter {
       const wallet = this.client.open(walletContract);
 
       // Check if wallet is deployed
-      const isDeployed = await wallet.getIsDeployed();
+      const isDeployed = await this.client.isContractDeployed(wallet.address);
       if (!isDeployed) {
         throw new Error('Wallet is not deployed. Please deploy the wallet first.');
       }
