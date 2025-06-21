@@ -10,12 +10,18 @@ import {
   FeeEstimate,
   TransactionHistory,
   IncomingTransaction,
-  EvmTransactionConfig
+  EvmTransactionConfig,
+  DeriveParams,
+  TransactionConfig,
+  SubscriptionCallback,
+  Unsubscribe
 } from "../../types/index.js";
 import Big from "big.js";
 import { ethers } from "ethers";
 import * as secp256k1 from "@noble/secp256k1";
 import { keccak256 } from "js-sha3";
+import { ConnectionPool, ConnectionFactory } from "../../core/pool/ConnectionPool.js";
+import { ValidationError, ErrorCode } from "../../core/errors/index.js";
 
 /**
  * Enhanced EVM adapter supporting multiple EVM-compatible chains
@@ -27,6 +33,7 @@ export class EvmAdapterV2 extends BaseAdapter {
   
   private provider: ethers.providers.JsonRpcProvider;
   private wsProvider?: ethers.providers.WebSocketProvider;
+  private providerPool?: ConnectionPool<ethers.providers.JsonRpcProvider>;
 
   constructor(
     chainName: SupportedChain,
@@ -73,6 +80,48 @@ export class EvmAdapterV2 extends BaseAdapter {
         this.logger?.error('WebSocket provider error', error, { chain: this.chainName });
       });
     }
+
+    // Initialize connection pool for parallel requests
+    const providerFactory: ConnectionFactory<ethers.providers.JsonRpcProvider> = {
+      create: async () => {
+        const provider = new ethers.providers.JsonRpcProvider(
+          httpEndpoint.url,
+          { 
+            chainId: config.chainId as number,
+            name: config.name 
+          }
+        );
+        
+        // Test the connection
+        await provider.getNetwork();
+        return provider;
+      },
+      
+      destroy: async (provider) => {
+        // Ethers providers don't need explicit cleanup
+        provider.removeAllListeners();
+      },
+      
+      validate: async (provider) => {
+        try {
+          await provider.getBlockNumber();
+          return true;
+        } catch {
+          return false;
+        }
+      }
+    };
+
+    this.providerPool = new ConnectionPool(
+      providerFactory,
+      {
+        maxSize: 10,
+        minSize: 2,
+        acquireTimeoutMs: 5000,
+        validateOnBorrow: true
+      },
+      this.logger
+    );
   }
 
   protected async deriveAddressFromPrivateKey(privateKey: Uint8Array): Promise<string> {
@@ -295,51 +344,206 @@ export class EvmAdapterV2 extends BaseAdapter {
     }
   }
 
-  async getHistory(params: any, limit = 100): Promise<TransactionHistory[]> {
+  async getHistory(params: any, limit = 100, options?: { 
+    fromBlock?: number; 
+    toBlock?: number; 
+    pageSize?: number;
+    includeTokenTransfers?: boolean;
+  }): Promise<TransactionHistory[]> {
     try {
       const address = await this.deriveAddress(params);
       
-      // This would typically use an explorer API
-      // For now, implement a basic version using provider
-      const latestBlock = await this.provider.getBlockNumber();
-      const fromBlock = Math.max(0, latestBlock - 1000); // Check last 1000 blocks
+      // Determine block range
+      const latestBlock = options?.toBlock || await this.provider.getBlockNumber();
+      const defaultFromBlock = Math.max(0, latestBlock - 10000); // Default: check last 10k blocks
+      const fromBlock = options?.fromBlock || defaultFromBlock;
       
+      // Pagination settings
+      const pageSize = options?.pageSize || 1000; // Process blocks in chunks
       const history: TransactionHistory[] = [];
       
-      for (let blockNumber = latestBlock; blockNumber >= fromBlock && history.length < limit; blockNumber--) {
+      // Process blocks in reverse order (newest first) with pagination
+      for (let endBlock = latestBlock; endBlock >= fromBlock && history.length < limit; endBlock -= pageSize) {
+        const startBlock = Math.max(fromBlock, endBlock - pageSize + 1);
+        
+        // Fetch logs for the address in this block range
         try {
-          const block = await this.provider.getBlockWithTransactions(blockNumber);
+          // Get incoming ETH transfers using logs (more efficient than checking every block)
+          const ethTransferLogs = await this.provider.getLogs({
+            fromBlock: startBlock,
+            toBlock: endBlock,
+            topics: [
+              null,
+              null,
+              ethers.utils.hexZeroPad(address, 32) // to address
+            ]
+          });
           
-          for (const tx of block.transactions) {
-            if (history.length >= limit) break;
-            
-            if (tx.from === address || tx.to === address) {
-              const receipt = await this.provider.getTransactionReceipt(tx.hash);
+          // Get outgoing transactions
+          const outgoingFilter = {
+            fromBlock: startBlock,
+            toBlock: endBlock,
+            topics: [
+              null,
+              ethers.utils.hexZeroPad(address, 32), // from address
+              null
+            ]
+          };
+          
+          // Process ETH transfers by scanning blocks (since ETH transfers don't emit logs)
+          const blockPromises: Promise<void>[] = [];
+          
+          // Batch process blocks for better performance using connection pool
+          const batchSize = 10;
+          for (let blockNum = endBlock; blockNum >= startBlock; blockNum -= batchSize) {
+            const batchPromise = (async () => {
+              const batchStart = Math.max(startBlock, blockNum - batchSize + 1);
               
-              history.push({
-                txHash: tx.hash,
-                blockNumber,
-                timestamp: block.timestamp * 1000,
-                from: tx.from,
-                to: tx.to || '',
-                amount: new Big(tx.value.toString()),
-                fee: new Big(receipt.gasUsed.toString()).times(receipt.effectiveGasPrice?.toString() || tx.gasPrice?.toString() || '0'),
-                status: receipt.status === 1 ? 'confirmed' : 'failed',
-                direction: tx.from === address ? 'outgoing' : 'incoming'
-              });
+              // Use pooled providers for parallel block fetching
+              const blocks = await Promise.all(
+                Array.from({ length: blockNum - batchStart + 1 }, (_, i) => 
+                  this.withPooledProvider(async (provider) => {
+                    try {
+                      return await provider.getBlockWithTransactions(batchStart + i);
+                    } catch {
+                      return null;
+                    }
+                  })
+                )
+              );
+              
+              for (const block of blocks) {
+                if (!block) continue;
+                
+                for (const tx of block.transactions) {
+                  if (history.length >= limit) return;
+                  
+                  // Check if transaction involves our address
+                  if (tx.from === address || tx.to === address) {
+                    try {
+                      const receipt = await this.withPooledProvider(provider => 
+                        provider.getTransactionReceipt(tx.hash)
+                      );
+                      
+                      history.push({
+                        txHash: tx.hash,
+                        blockNumber: block.number,
+                        timestamp: block.timestamp * 1000,
+                        from: tx.from,
+                        to: tx.to || '',
+                        amount: new Big(tx.value.toString()),
+                        fee: new Big(receipt.gasUsed.toString()).times(
+                          receipt.effectiveGasPrice?.toString() || tx.gasPrice?.toString() || '0'
+                        ),
+                        status: receipt.status === 1 ? 'confirmed' : 'failed',
+                        direction: tx.from === address ? 'outgoing' : 'incoming',
+                        data: tx.data
+                      });
+                    } catch (err) {
+                      this.logger?.warn('Failed to get receipt for transaction', { 
+                        txHash: tx.hash, 
+                        error: err 
+                      });
+                    }
+                  }
+                }
+              }
+            })();
+            
+            blockPromises.push(batchPromise);
+          }
+          
+          // Wait for all block processing to complete
+          await Promise.all(blockPromises);
+          
+          // Also get ERC20 token transfers if requested
+          if (options?.includeTokenTransfers) {
+            const transferEventSignature = ethers.utils.id('Transfer(address,address,uint256)');
+            
+            // Incoming token transfers
+            const incomingTokenLogs = await this.provider.getLogs({
+              fromBlock: startBlock,
+              toBlock: endBlock,
+              topics: [
+                transferEventSignature,
+                null, // from (any)
+                ethers.utils.hexZeroPad(address, 32) // to (our address)
+              ]
+            });
+            
+            // Outgoing token transfers
+            const outgoingTokenLogs = await this.provider.getLogs({
+              fromBlock: startBlock,
+              toBlock: endBlock,
+              topics: [
+                transferEventSignature,
+                ethers.utils.hexZeroPad(address, 32), // from (our address)
+                null // to (any)
+              ]
+            });
+            
+            // Process token transfer logs
+            const allTokenLogs = [...incomingTokenLogs, ...outgoingTokenLogs];
+            
+            for (const log of allTokenLogs) {
+              if (history.length >= limit) break;
+              
+              try {
+                const tx = await this.provider.getTransaction(log.transactionHash);
+                const receipt = await this.provider.getTransactionReceipt(log.transactionHash);
+                const block = await this.provider.getBlock(log.blockNumber);
+                
+                // Decode transfer amount
+                const amount = ethers.BigNumber.from(log.data);
+                const from = ethers.utils.getAddress('0x' + log.topics[1].slice(26));
+                const to = ethers.utils.getAddress('0x' + log.topics[2].slice(26));
+                
+                history.push({
+                  txHash: log.transactionHash,
+                  blockNumber: log.blockNumber,
+                  timestamp: block.timestamp * 1000,
+                  from: from,
+                  to: to,
+                  amount: new Big(amount.toString()),
+                  fee: new Big(receipt.gasUsed.toString()).times(
+                    receipt.effectiveGasPrice?.toString() || tx.gasPrice?.toString() || '0'
+                  ),
+                  status: receipt.status === 1 ? 'confirmed' : 'failed',
+                  direction: from.toLowerCase() === address.toLowerCase() ? 'outgoing' : 'incoming',
+                  tokenContract: log.address,
+                  logIndex: log.logIndex
+                });
+              } catch (err) {
+                this.logger?.warn('Failed to process token transfer log', { 
+                  txHash: log.transactionHash, 
+                  error: err 
+                });
+              }
             }
           }
-        } catch (blockError) {
-          // Skip blocks that can't be fetched
-          continue;
+          
+        } catch (error) {
+          this.logger?.warn('Failed to fetch logs for block range', { 
+            startBlock, 
+            endBlock, 
+            error 
+          });
         }
       }
       
-      return history.sort((a, b) => b.timestamp - a.timestamp);
+      // Remove duplicates and sort by timestamp (newest first)
+      const uniqueHistory = Array.from(
+        new Map(history.map(tx => [tx.txHash, tx])).values()
+      );
+      
+      return uniqueHistory
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, limit);
     } catch (error) {
       this.logger?.error('Failed to get EVM transaction history', error as Error, {
         chain: this.chainName,
-        limit
+        limit,
+        options
       });
       throw error;
     }
@@ -476,12 +680,224 @@ export class EvmAdapterV2 extends BaseAdapter {
       await this.wsProvider.destroy();
     }
     
+    // Destroy provider pool
+    if (this.providerPool) {
+      await this.providerPool.destroy();
+    }
+    
     await super.shutdown();
+  }
+
+  // Helper method to execute operations with pooled providers
+  private async withPooledProvider<T>(
+    operation: (provider: ethers.providers.JsonRpcProvider) => Promise<T>
+  ): Promise<T> {
+    if (!this.providerPool) {
+      // Fallback to main provider if pool not available
+      return operation(this.provider);
+    }
+
+    const connection = await this.providerPool.acquire();
+    try {
+      return await operation(connection.resource);
+    } finally {
+      await this.providerPool.release(connection);
+    }
   }
 
   // Override base validation
   protected validateAddress(address: string): void {
     this.validateEvmAddress(address);
+  }
+
+  // Implement subscribe method for real-time transaction monitoring
+  async subscribe(address: string, callback: SubscriptionCallback): Promise<Unsubscribe> {
+    this.validateAddress(address);
+    
+    // Use WebSocket provider if available for real-time updates
+    if (this.wsProvider) {
+      // Subscribe to incoming transactions
+      const filter = {
+        address: address,
+        topics: []
+      };
+      
+      // For incoming ETH transfers
+      this.wsProvider.on('block', async (blockNumber) => {
+        try {
+          const block = await this.wsProvider!.getBlockWithTransactions(blockNumber);
+          
+          for (const tx of block.transactions) {
+            // Check if transaction is TO the address
+            if (tx.to === address && tx.value.gt(0)) {
+              const receipt = await this.wsProvider!.getTransactionReceipt(tx.hash);
+              
+              if (receipt && receipt.status === 1) {
+                const incomingTx: IncomingTransaction = {
+                  txHash: tx.hash,
+                  from: tx.from,
+                  to: address,
+                  amount: new Big(tx.value.toString()),
+                  blockNumber: blockNumber,
+                  timestamp: block.timestamp * 1000
+                };
+                
+                await callback(incomingTx);
+              }
+            }
+          }
+        } catch (error) {
+          this.logger?.error('Error processing block for subscription', error as Error, {
+            chain: this.chainName,
+            address,
+            blockNumber
+          });
+        }
+      });
+      
+      // Also listen for ERC20 Transfer events TO the address
+      const transferEventSignature = ethers.utils.id('Transfer(address,address,uint256)');
+      const addressPadded = ethers.utils.hexZeroPad(address, 32);
+      
+      const erc20Filter = {
+        topics: [
+          transferEventSignature,
+          null, // from (any)
+          addressPadded // to (our address)
+        ]
+      };
+      
+      this.wsProvider.on(erc20Filter, async (log) => {
+        try {
+          // Decode the transfer event
+          const amount = ethers.BigNumber.from(log.data);
+          const from = ethers.utils.hexStripZeros(log.topics[1]);
+          
+          const incomingTx: IncomingTransaction = {
+            txHash: log.transactionHash,
+            from: from,
+            to: address,
+            amount: new Big(amount.toString()),
+            blockNumber: log.blockNumber,
+            timestamp: Date.now(), // Will be updated with actual block timestamp
+            tokenContract: log.address
+          };
+          
+          // Get actual timestamp
+          const block = await this.wsProvider!.getBlock(log.blockNumber);
+          incomingTx.timestamp = block.timestamp * 1000;
+          
+          await callback(incomingTx);
+        } catch (error) {
+          this.logger?.error('Error processing ERC20 transfer event', error as Error, {
+            chain: this.chainName,
+            address,
+            log
+          });
+        }
+      });
+      
+      // Return unsubscribe function
+      return () => {
+        this.wsProvider?.removeAllListeners('block');
+        this.wsProvider?.removeAllListeners(erc20Filter);
+      };
+    } else {
+      // Fallback to polling if no WebSocket available
+      return super.subscribe(address, callback);
+    }
+  }
+
+  // Implement sign method for offline transaction signing
+  async sign(params: DeriveParams, tx: TransactionConfig): Promise<string> {
+    try {
+      const privateKey = this.derivePrivateKey(params);
+      const address = await this.deriveAddress(params);
+      
+      // Create wallet from private key
+      const wallet = new ethers.Wallet(
+        '0x' + Buffer.from(privateKey).toString('hex')
+      );
+      
+      // Cast to EVM transaction config
+      const evmTx = tx as EvmTransactionConfig;
+      
+      // Validate required fields
+      if (!evmTx.to) {
+        throw new ValidationError(ErrorCode.INVALID_PARAMS, 'Transaction must have a "to" address');
+      }
+      
+      this.validateEvmAddress(evmTx.to);
+      
+      // Get nonce if not provided
+      const nonce = evmTx.nonce !== undefined ? evmTx.nonce : 
+                    await this.provider.getTransactionCount(address, 'pending');
+      
+      // Determine transaction type
+      const txType = evmTx.type !== undefined ? evmTx.type : 
+                     (this.config.feeConfig?.type === 'eip1559' ? 2 : 0);
+      
+      // Prepare transaction request
+      const txRequest: ethers.providers.TransactionRequest = {
+        to: evmTx.to,
+        value: evmTx.value?.toString() || '0',
+        data: evmTx.data || '0x',
+        nonce,
+        chainId: evmTx.chainId || (this.config.chainId as number),
+        type: txType,
+      };
+      
+      // Set gas parameters based on transaction type
+      if (txType === 2 || evmTx.maxFeePerGas || evmTx.maxPriorityFeePerGas) {
+        // EIP-1559 transaction
+        if (!evmTx.maxFeePerGas || !evmTx.maxPriorityFeePerGas) {
+          const feeData = await this.provider.getFeeData();
+          txRequest.maxFeePerGas = evmTx.maxFeePerGas?.toString() || 
+                                  feeData.maxFeePerGas?.toString();
+          txRequest.maxPriorityFeePerGas = evmTx.maxPriorityFeePerGas?.toString() || 
+                                          feeData.maxPriorityFeePerGas?.toString();
+        } else {
+          txRequest.maxFeePerGas = evmTx.maxFeePerGas.toString();
+          txRequest.maxPriorityFeePerGas = evmTx.maxPriorityFeePerGas.toString();
+        }
+      } else {
+        // Legacy transaction
+        const gasPrice = evmTx.gasPrice || await this.provider.getGasPrice();
+        txRequest.gasPrice = gasPrice.toString();
+      }
+      
+      // Set gas limit
+      if (evmTx.gasLimit) {
+        txRequest.gasLimit = evmTx.gasLimit.toString();
+      } else {
+        try {
+          const estimatedGas = await this.provider.estimateGas(txRequest);
+          txRequest.gasLimit = estimatedGas.toString();
+        } catch (error) {
+          // Use default gas limits
+          txRequest.gasLimit = txRequest.data && txRequest.data !== '0x' ? '100000' : '21000';
+        }
+      }
+      
+      // Sign the transaction
+      const signedTx = await wallet.signTransaction(txRequest);
+      
+      this.logger?.info('Transaction signed', {
+        chain: this.chainName,
+        from: address,
+        to: evmTx.to,
+        nonce,
+        type: txType
+      });
+      
+      return signedTx;
+    } catch (error) {
+      this.logger?.error('Failed to sign transaction', error as Error, {
+        chain: this.chainName,
+        params
+      });
+      throw error;
+    }
   }
 }
 

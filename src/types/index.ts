@@ -44,6 +44,9 @@ export interface BaseTransactionConfig {
 
 // EVM-specific transaction configuration
 export interface EvmTransactionConfig extends BaseTransactionConfig {
+  // Transaction recipient
+  to?: string;
+  
   // Gas configuration
   gasLimit?: Big;
   gasPrice?: Big;
@@ -246,6 +249,9 @@ export interface TransactionHistory {
   fee: Big;
   status: 'confirmed' | 'pending' | 'failed';
   direction: 'incoming' | 'outgoing';
+  tokenContract?: string;
+  data?: string;
+  logIndex?: number;
 }
 
 // Subscription types
@@ -258,6 +264,7 @@ export interface IncomingTransaction {
   amount: Big;
   blockNumber?: number;
   timestamp?: number;
+  tokenContract?: string;
 }
 
 export interface Unsubscribe {

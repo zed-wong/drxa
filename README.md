@@ -242,28 +242,28 @@ MyChainAdapters.forEach(adapter => registry.registerAdapter(adapter));
 
 ## 🌐 Supported Chains
 
-The SDK supports 15+ major blockchains with comprehensive functionality:
+The SDK supports 20+ blockchains with comprehensive functionality:
 
-### 🥇 Tier 1 - Full Support
+### Native Chains
+|Chain|Derive|Balance|Send|History|Fee Estimation|Subscriptions|Architecture|
+|-----|------|-------|----|----|------------|-----------|------------|
+|**Bitcoin**|✅|✅|✅|✅|✅|✅|V2 (BaseAdapter)|
+|**Solana**|✅|✅|✅|⚠️|⚠️|⚠️|V1 (Legacy)|
+|**Aptos**|✅|✅|✅|✅|✅|✅|V2 (BaseAdapter)|
+|**TON**|✅|✅|✅|✅|✅|✅|V2 (BaseAdapter)|
+|**EOS**|✅|✅|✅|✅|✅|✅|V2 (BaseAdapter)|
+|**NEAR**|✅|✅|✅|✅|✅|✅|V2 (BaseAdapter)|
+|**Cardano**|✅|✅|⚠️|❌|❌|❌|V1 (Legacy)|
+|**Polkadot**|✅|✅|⚠️|❌|❌|❌|V1 (Legacy)|
+|**Sui**|✅|✅|⚠️|❌|❌|❌|V1 (Legacy)|
+|**Tron**|✅|✅|⚠️|❌|❌|❌|V1 (Legacy)|
+
+### EVM-Compatible Chains
+All EVM chains share a unified implementation with full feature support:
+
 |Chain|Derive|Balance|Send|History|Fee Estimation|Subscriptions|
 |-----|------|-------|----|----|------------|-----------|
-|**Bitcoin**|✅|✅|✅|✅|✅|✅|
 |**Ethereum**|✅|✅|✅|✅|✅|✅|
-|**Solana**|✅|✅|✅|✅|✅|✅|
-
-### 🥈 Tier 2 - Core Support  
-|Chain|Derive|Balance|Send|History|Fee Estimation|Subscriptions|
-|-----|------|-------|----|----|------------|-----------|
-|**Aptos**|✅|✅|✅|✅|✅|✅|
-|**TON**|✅|✅|✅|✅|✅|✅|
-|**EOS**|✅|✅|✅|✅|✅|✅|
-|**NEAR**|✅|✅|✅|✅|✅|✅|
-
-### 🥉 Tier 3 - EVM Ecosystem
-All EVM-compatible chains share the same robust implementation:
-
-|Chain|Derive|Balance|Send|History|Fee Estimation|Subscriptions|
-|-----|------|-------|----|----|------------|-----------|
 |**BSC** (Binance Smart Chain)|✅|✅|✅|✅|✅|✅|
 |**Polygon**|✅|✅|✅|✅|✅|✅|
 |**Avalanche** (C-Chain)|✅|✅|✅|✅|✅|✅|
@@ -273,15 +273,12 @@ All EVM-compatible chains share the same robust implementation:
 |**Sonic**|✅|✅|✅|✅|✅|✅|
 |**Base**|✅|✅|✅|✅|✅|✅|
 
-### 🔧 Legacy Support
-|Chain|Derive|Balance|Send|Notes|
-|-----|------|-------|----|----|
-|**Cardano**|✅|✅|⚠️|Legacy adapter, limited functionality|
-|**Polkadot**|✅|✅|⚠️|Legacy adapter, limited functionality|
-|**Sui**|✅|✅|⚠️|Legacy adapter, limited functionality|
-|**Tron**|✅|✅|⚠️|Legacy adapter, limited functionality|
+### Feature Legend
+- ✅ Fully implemented and tested
+- ⚠️ Partial implementation or requires additional configuration
+- ❌ Not yet implemented
 
-> **Note**: Legacy adapters will be upgraded to the new BaseAdapter architecture in future releases.
+> **Note**: V1 (Legacy) adapters are being upgraded to the new V2 BaseAdapter architecture for enhanced functionality and consistency.
 
 ## 🔧 Creating Custom Adapters
 
