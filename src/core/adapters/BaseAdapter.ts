@@ -16,7 +16,8 @@ import {
   Logger,
   MetricsCollector,
   SupportedChain,
-  validateDeriveParams
+  validateDeriveParams,
+  IChainAdapter
 } from "../../types/index.js";
 import { 
   ErrorFactory, 
@@ -26,27 +27,6 @@ import {
   ErrorCode
 } from "../errors/index.js";
 import { deriveEntropy } from "../../utils/derivation.js";
-
-export interface IChainAdapter {
-  readonly chainName: SupportedChain;
-  readonly config: ChainConfig;
-  
-  // Core methods
-  deriveAddress(params: DeriveParams): Promise<string>;
-  balance(params: DeriveParams): Promise<Big>;
-  send(params: DeriveParams, to: string, amount: Big, config?: TransactionConfig): Promise<TransactionResponse>;
-  
-  // Optional methods
-  estimateFee?(params: DeriveParams, to: string, amount: Big, config?: TransactionConfig): Promise<FeeEstimate>;
-  sign?(params: DeriveParams, tx: TransactionConfig): Promise<string>;
-  getHistory?(params: DeriveParams, limit?: number): Promise<TransactionHistory[]>;
-  fetchLatestTx?(params: DeriveParams): Promise<TransactionResponse | null>;
-  subscribe?(address: string, callback: SubscriptionCallback): Promise<Unsubscribe>;
-  
-  // Lifecycle
-  initialize?(): Promise<void>;
-  shutdown?(): Promise<void>;
-}
 
 export abstract class BaseAdapter extends EventEmitter implements IChainAdapter {
   protected readonly masterSeed: Uint8Array;

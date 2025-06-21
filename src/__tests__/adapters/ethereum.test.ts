@@ -171,11 +171,27 @@ describe('Ethereum-specific functionality', () => {
   it('should work with different EVM chains', async () => {
     const evmChains: SupportedChain[] = ['bsc', 'polygon', 'avalanche', 'arbitrum'];
     
+    // Test EVM adapter compatibility by creating adapters directly
+    const { createEvmAdapter } = await import('../../adapters/evm/EvmAdapterV2.js');
+    const { ConfigManager } = await import('../../core/config/ConfigManager.js');
+    
+    const testSeed = new Uint8Array([
+      0x6a, 0xeb, 0x8a, 0xa8, 0x77, 0xe9, 0xbc, 0x8c, 0x26, 0xfc, 0x6a, 0x6d, 0x4d, 0x85, 0x2e, 0x41,
+      0xd5, 0x1e, 0x4b, 0xf6, 0x22, 0x66, 0xf1, 0xfa, 0x99, 0x14, 0x06, 0x0a, 0x6b, 0x35, 0xa5, 0xa6
+    ]);
+    
+    const configManager = ConfigManager.getInstance();
+    const successfulChains: string[] = [];
+    
+    // Verify each EVM chain works correctly
     for (const chain of evmChains) {
-      const framework = new AdapterTestFramework();
-      
       try {
-        const adapter = await framework['registry'].loadAdapter(chain);
+        const chainConfig = configManager.getChainConfig(chain);
+        const adapter = createEvmAdapter(
+          chain,
+          chainConfig,
+          testSeed
+        );
         
         const address = await adapter.deriveAddress({
           scope: 'wallet',
@@ -183,14 +199,19 @@ describe('Ethereum-specific functionality', () => {
           chain,
           index: '0'
         });
-
+        
         // All EVM chains should generate valid Ethereum-style addresses
         expect(address).toMatch(/^0x[a-fA-F0-9]{40}$/);
         expect(adapter.chainName).toBe(chain);
+        
+        successfulChains.push(chain);
       } catch (error) {
-        console.warn(`Chain ${chain} not available for testing:`, error);
+        console.warn(`Chain ${chain} not configured or failed:`, error);
       }
     }
+    
+    // At least one other EVM chain should work besides Ethereum
+    expect(successfulChains.length).toBeGreaterThan(0);
   });
 
   it('should handle ERC20 token operations', async () => {

@@ -312,6 +312,28 @@ export interface AdapterConfig {
   batchSize?: number;
 }
 
+// Chain Adapter Interface
+export interface IChainAdapter {
+  readonly chainName: SupportedChain;
+  readonly config: ChainConfig;
+  
+  // Core methods
+  deriveAddress(params: DeriveParams): Promise<string>;
+  balance(params: DeriveParams): Promise<Big>;
+  send(params: DeriveParams, to: string, amount: Big, config?: TransactionConfig): Promise<TransactionResponse>;
+  
+  // Optional methods
+  estimateFee?(params: DeriveParams, to: string, amount: Big, config?: TransactionConfig): Promise<FeeEstimate>;
+  sign?(params: DeriveParams, tx: TransactionConfig): Promise<string>;
+  getHistory?(params: DeriveParams, limit?: number): Promise<TransactionHistory[]>;
+  fetchLatestTx?(params: DeriveParams): Promise<TransactionResponse | null>;
+  subscribe?(address: string, callback: SubscriptionCallback): Promise<Unsubscribe>;
+  
+  // Lifecycle
+  initialize?(): Promise<void>;
+  shutdown?(): Promise<void>;
+}
+
 // SDK Configuration
 export interface SDKConfig {
   seed: string | Uint8Array;
