@@ -1,0 +1,15 @@
+src/
+__tests__/
+tsconfig.json
+.git/
+.github/
+.vscode/
+node_modules/
+*.test.ts
+*.test.js
+.env
+.env.local
+*.log
+coverage/
+.DS_Store
+CLAUDE.md

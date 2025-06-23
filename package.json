@@ -6,6 +6,16 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "keywords": ["blockchain", "crypto", "wallet", "multi-chain", "deterministic", "address", "ethereum", "bitcoin", "solana"],
+  "author": "zed-wong",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zed-wong/drxa.git"
+  },
+  "homepage": "https://github.com/zed-wong/drxa",
+  "bugs": {
+    "url": "https://github.com/zed-wong/drxa/issues"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",

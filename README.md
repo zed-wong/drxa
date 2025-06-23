@@ -15,19 +15,39 @@
 - **💾 Memory Efficient**: Connection pooling and automatic resource cleanup prevent memory leaks
 - **🔒 Type-Safe**: Full TypeScript support with runtime validation and no `any` types
 
-## Installation
+## 📦 Installation
 
-To install dependencies, use [Bun](https://bun.sh):
+Install the SDK from npm:
 
 ```bash
-bun install
+npm install drxa
 ```
 
-## Building the SDK
-
-To compile the TypeScript code into JavaScript:
+Or using Bun (recommended):
 
 ```bash
+bun add drxa
+```
+
+Or using Yarn:
+
+```bash
+yarn add drxa
+```
+
+## 🔨 Development Setup
+
+If you want to contribute or build from source:
+
+```bash
+# Clone the repository
+git clone https://github.com/zed-wong/drxa.git
+cd drxa
+
+# Install dependencies (using Bun)
+bun install
+
+# Build the SDK
 bun run build
 ```
 
@@ -48,14 +68,6 @@ The `examples/` folder contains sample scripts demonstrating how to use the SDK.
    ```
 
 ## 🚀 Quick Start
-
-### Installation
-
-```bash
-npm install drxa
-# or
-bun add drxa
-```
 
 ### Basic Usage
 
